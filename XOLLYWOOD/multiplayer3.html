@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>XOLLYWOOD - Multiplayer Lobby (X v X)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #ffffff;
+      touch-action: manipulation;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      overflow-y: auto;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: clamp(60px, 8vh, 80px) 16px 30px 16px;
+      padding-top: max(clamp(60px, 8vh, 80px), env(safe-area-inset-top));
+      padding-bottom: max(30px, env(safe-area-inset-bottom));
+    }
+
+    #spaceCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Left Audio Control Toggles */
+    .audio-controls {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      left: max(16px, env(safe-area-inset-left));
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    }
+
+    /* Header */
+    .match-header {
+      position: relative;
+      z-index: 20;
+      text-align: center;
+      margin-bottom: clamp(16px, 3vh, 24px);
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .main-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.2rem, 5vw, 2.4rem);
+      letter-spacing: clamp(2px, 1vw, 5px);
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.8);
+      word-break: break-word;
+    }
+
+    .sub-title {
+      font-size: clamp(0.7rem, 2.5vw, 0.85rem);
+      letter-spacing: 2px;
+      color: rgba(0, 240, 255, 0.8);
+      margin-top: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    /* Pairings Container */
+    .pairings-container {
+      position: relative;
+      z-index: 20;
+      width: 100%;
+      max-width: 550px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .pairing-card {
+      background: rgba(0, 15, 30, 0.7);
+      border: 1.5px solid rgba(0, 240, 255, 0.35);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+    }
+
+    .player-node {
+      font-weight: 800;
+      font-size: clamp(0.8rem, 3vw, 0.95rem);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      flex: 1 1 30%;
+      min-width: 90px;
+      text-align: center;
+      word-break: break-word;
+    }
+
+    .player-node.team-a { color: #00f0ff; text-shadow: 0 0 8px rgba(0, 240, 255, 0.6); }
+    .player-node.team-b { color: #ffcc00; text-shadow: 0 0 8px rgba(255, 204, 0, 0.6); }
+
+    .vs-tag {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+      color: rgba(255, 255, 255, 0.6);
+      flex: 0 0 auto;
+    }
+
+    .btn-ready {
+      appearance: none;
+      background: transparent;
+      border: 1.5px solid #00ffaa;
+      color: #00ffaa;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(0.7rem, 2.5vw, 0.8rem);
+      letter-spacing: 2px;
+      padding: 8px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 255, 170, 0.2);
+      transition: all 0.25s ease;
+      text-transform: uppercase;
+      flex: 0 0 auto;
+      margin-left: auto;
+    }
+
+    .btn-ready.ready-active {
+      background: #00ffaa;
+      color: #000000;
+      box-shadow: 0 0 20px #00ffaa;
+    }
+
+    .btn-ready:disabled {
+      border-color: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.4);
+      background: transparent;
+      box-shadow: none;
+      cursor: default;
+    }
+
+    /* Host Controls */
+    .host-next-row {
+      margin-top: 10px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    .btn-next-round {
+      appearance: none;
+      background: transparent;
+      border: 1.5px solid #00f0ff;
+      color: #ffffff;
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(0.85rem, 3vw, 1rem);
+      letter-spacing: 3px;
+      padding: 12px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+    }
+
+    .btn-next-round:hover {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 35px #00f0ff;
+    }
+
+    .btn-see-winner-active {
+      background: linear-gradient(135deg, #ffd700, #ff8800) !important;
+      border: 2px solid #ffffff !important;
+      color: #000000 !important;
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.8) !important;
+      animation: pulseGlow 1.5s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% { transform: scale(1); box-shadow: 0 0 20px rgba(255, 215, 0, 0.6); }
+      100% { transform: scale(1.05); box-shadow: 0 0 35px rgba(255, 215, 0, 1); }
+    }
+
+    .waiting-host-bar {
+      z-index: 20;
+      background: rgba(0, 20, 35, 0.8);
+      border: 1px solid #ffd700;
+      color: #ffd700;
+      padding: 12px 20px;
+      border-radius: 20px;
+      font-size: clamp(0.75rem, 2.5vw, 0.85rem);
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-align: center;
+      margin-top: 10px;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+      backdrop-filter: blur(6px);
+      max-width: 480px;
+      width: 100%;
+    }
+
+    /* GRAND WINNER OVERLAY */
+    .game-modal {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(0, 20, 38, 0.94) 0%, rgba(0, 5, 12, 0.98) 75%, #000000 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 300;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: blur(16px);
+      padding: 24px 16px;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    .game-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .winner-reveal-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      max-width: 650px;
+      width: 100%;
+      animation: revealEnter 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes revealEnter {
+      0% {
+        opacity: 0;
+        transform: scale(0.88) translateY(30px);
+        filter: blur(10px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+      }
+    }
+
+    .reveal-tag {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(0.85rem, 2.5vw, 1.2rem);
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #ffd700;
+      text-transform: uppercase;
+      text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+      margin-bottom: 16px;
+      animation: fadeInDown 0.6s ease 0.1s both;
+    }
+
+    .winner-team-headline {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(2rem, 7vw, 4.4rem);
+      font-weight: 800;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      line-height: 1.1;
+      margin-bottom: 12px;
+      animation: textGlowPulse 2.5s infinite alternate ease-in-out;
+      word-break: break-word;
+    }
+
+    @keyframes textGlowPulse {
+      0% {
+        text-shadow: 0 0 18px #00f0ff, 0 0 35px rgba(0, 240, 255, 0.5);
+      }
+      100% {
+        text-shadow: 0 0 30px #00f0ff, 0 0 65px rgba(0, 240, 255, 0.9);
+      }
+    }
+
+    .winner-roster {
+      font-size: clamp(0.85rem, 2.8vw, 1.2rem);
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.9);
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      word-break: break-word;
+    }
+
+    .reveal-divider {
+      width: 140px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #00f0ff, transparent);
+      box-shadow: 0 0 10px #00f0ff;
+      margin: 10px 0 22px 0;
+    }
+
+    .winner-mvp-text {
+      font-size: clamp(0.8rem, 2.4vw, 1.05rem);
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #00ffaa;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      text-shadow: 0 0 12px rgba(0, 255, 170, 0.6);
+      word-break: break-word;
+    }
+
+    .winner-score-line {
+      font-size: clamp(0.75rem, 2vw, 0.95rem);
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.65);
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    .btn-winner-action {
+      appearance: none;
+      background: transparent;
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+      font-weight: 800;
+      letter-spacing: 3px;
+      padding: 12px 32px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      transition: all 0.25s ease;
+      text-transform: uppercase;
+    }
+
+    .btn-winner-action:hover {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 35px #00f0ff;
+      transform: scale(1.05);
+    }
+
+    @keyframes fadeInDown {
+      0% { opacity: 0; transform: translateY(-15px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Warning Banner */
+    .game-warning-banner {
+      position: fixed;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 20, 40, 0.95);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-size: clamp(0.75rem, 2.5vw, 0.85rem);
+      letter-spacing: 2px;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      z-index: 150;
+      transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      text-align: center;
+      width: 90%;
+      max-width: 420px;
+    }
+
+    .game-warning-banner.show { top: max(20px, env(safe-area-inset-top)); }
+
+    /* Mobile Layout Tweaks */
+    @media (max-width: 480px) {
+      .pairing-card {
+        justify-content: center;
+      }
+      .player-node {
+        flex: 1 1 40%;
+      }
+      .btn-ready {
+        width: 100%;
+        margin-top: 4px;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Top Left Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div class="game-warning-banner" id="warningBanner">WAITING...</div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="match-header">
+      <h1 class="main-title" id="roundTitleDisplay">ROUND 1 BATTLE LOBBY</h1>
+      <div class="sub-title" id="roundSubTitle">PRESS READY TO START YOUR BATTLE</div>
+    </div>
+
+    <!-- Pairings List -->
+    <div class="pairings-container" id="pairingsContainer"></div>
+
+    <!-- Host Action Row -->
+    <div class="host-next-row" id="hostNextRow" style="display:none;">
+      <button type="button" class="btn-next-round" id="btnHostRoundAction" onclick="handleHostRoundAction()">NEXT ROUND</button>
+    </div>
+
+    <!-- Waiting Banner for Non-Host Players -->
+    <div class="waiting-host-bar" id="waitingHostBar" style="display:none;"></div>
+
+    <!-- GRAND WINNER MODAL -->
+    <div class="game-modal" id="gameModal">
+      <div class="winner-reveal-content">
+        <div class="reveal-tag">🏆 TOURNAMENT CHAMPIONS 🏆</div>
+        <h1 class="winner-team-headline" id="modalWinnerTeam">TEAM A WINS!</h1>
+        <div class="winner-roster" id="modalWinnerPlayers">CHAMPIONS: GAUTHAM</div>
+
+        <div class="reveal-divider"></div>
+
+        <div class="winner-mvp-text" id="modalMvpBadge">★ SUPER PERFORMER: GAUTHAM (2 WINS) ★</div>
+        <div class="winner-score-line" id="modalScoreSummary">FINAL SCORE • TEAM A: 2 WINS | TEAM B: 0 WINS</div>
+
+        <button type="button" class="btn-winner-action" onclick="closeWinnerModal()">CONTINUE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movie Pools -->
+  <script src="movies.js"></script>
+  <script>
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const dustParticles = [];
+    for (let i = 0; i < 80; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.6 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.25,
+        speedY: (Math.random() - 0.5) * 0.4 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    let animTime = 0;
+    function render() {
+      animTime += 0.02;
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+        const twinkle = p.alpha * (0.5 + Math.sin(animTime * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // --- Audio Engine ---
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) { bgmBtn.classList.add('muted'); bgmBtn.textContent = '🔇'; }
+      if (sfxMuted) { sfxBtn.classList.add('muted'); sfxBtn.textContent = '🔇'; }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+
+      initLobbyEngine();
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) { sndBgm.pause(); btn.classList.add('muted'); btn.textContent = '🔇'; }
+      else { sndBgm.play().catch(() => {}); btn.classList.remove('muted'); btn.textContent = '🎵'; }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) { btn.classList.add('muted'); }
+      else { btn.classList.remove('muted'); }
+    }
+
+    function playClickSound() {
+      if (!sfxMuted) {
+        if (sndClickDrop && sndClickDrop.readyState >= 2) {
+          sndClickDrop.currentTime = 0.26;
+          sndClickDrop.play().catch(() => {});
+        }
+      }
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    function playSuccessChime() {
+      if (sfxMuted) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const aCtx = new AudioContext();
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = aCtx.createOscillator();
+          const gain = aCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, aCtx.currentTime + idx * 0.12);
+          gain.gain.setValueAtTime(0.25, aCtx.currentTime + idx * 0.12);
+          gain.gain.exponentialRampToValueAtTime(0.001, aCtx.currentTime + idx * 0.12 + 0.4);
+          osc.connect(gain);
+          gain.connect(aCtx.destination);
+          osc.start(aCtx.currentTime + idx * 0.12);
+          osc.stop(aCtx.currentTime + idx * 0.12 + 0.4);
+        });
+      } catch(e) {}
+    }
+
+    function showWarning(text) {
+      const banner = document.getElementById('warningBanner');
+      banner.textContent = text;
+      banner.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([60, 40]);
+      setTimeout(() => { banner.classList.remove('show'); }, 2500);
+    }
+
+    const MOVIE_POOLS = {
+     MOLLYWOOD: [
+  // Classic Masterpieces & 80s-90s Hits
+  { title: "MANICHITRATHAZU", hero: "Mohanlal", year: "1993", type: "Psychological Horror" },
+  { title: "SPADIKAM", hero: "Mohanlal", year: "1995", type: "Action Drama" },
+  { title: "DEVASURAM", hero: "Mohanlal", year: "1993", type: "Drama" },
+  { title: "KILUKKAM", hero: "Mohanlal", year: "1991", type: "Romantic Comedy" },
+  { title: "CHITHRAM", hero: "Mohanlal", year: "1988", type: "Comedy Drama" },
+  { title: "NADODIKATTU", hero: "Mohanlal", year: "1987", type: "Classic Comedy" },
+  { title: "VANDANAM", hero: "Mohanlal", year: "1989", type: "Romantic Action" },
+  { title: "KIREEDAM", hero: "Mohanlal", year: "1989", type: "Tragedy Drama" },
+  { title: "CHENKOL", hero: "Mohanlal", year: "1993", type: "Tragedy Drama" },
+  { title: "THALAVATTOM", hero: "Mohanlal", year: "1986", type: "Tragedy Comedy" },
+  { title: "POOCHAKKORU MOOKKUTHI", hero: "Mohanlal", year: "1984", type: "Comedy" },
+  { title: "CHANDRALEKHA", hero: "Mohanlal", year: "1997", type: "Comedy" },
+  { title: "THE KING", hero: "Mammootty", year: "1995", type: "Political Drama" },
+  { title: "AMARAM", hero: "Mammootty", year: "1991", type: "Family Drama" },
+  { title: "SAMRAJYAM", hero: "Mammootty", year: "1990", type: "Action" },
+  { title: "SAINIKAM", hero: "Mammootty", year: "1993", type: "Action" },
+  { title: "MAHAYANAM", hero: "Mammootty", year: "1989", type: "Action" },
+  { title: "THANIYAVARTANAM", hero: "Mammootty", year: "1987", type: "Drama" },
+  { title: "ORU CRPCAVALANADA", hero: "Mammootty", year: "1988", type: "Investigation" },
+  { title: "MATHILUKAL", hero: "Mammootty", year: "1990", type: "Drama" },
+  { title: "IN HARIHAR NAGAR", hero: "Mukesh", year: "1990", type: "Comedy" },
+  { title: "GODFATHER", hero: "Mukesh", year: "1991", type: "Comedy" },
+  { title: "VIETNAM COLONY", hero: "Mohanlal", year: "1992", type: "Comedy Action" },
+  { title: "MITHUNAM", hero: "Mohanlal", year: "1993", type: "Family Drama" },
+  { title: "THENMAVIN KOMBATHU", hero: "Mohanlal", year: "1994", type: "Romantic Comedy" },
+  { title: "MELEPARAMBIL AANVEEDU", hero: "Jayaram", year: "1993", type: "Comedy" },
+  { title: "ANANTHANTHARAM", hero: "Mammootty", year: "1987", type: "Drama" },
+  { title: "RAMJI RAO SPEAKING", hero: "Saikumar", year: "1989", type: "Comedy" },
+  { title: "PINGAMI", hero: "Mohanlal", year: "1994", type: "Action Thriller" },
+  { title: "YOODHA", hero: "Mohanlal", year: "1992", type: "Action Comedy" },
+
+  // Golden 2000s Hits
+  { title: "RAJAMANIKYAM", hero: "Mammootty", year: "2005", type: "Mass Comedy" },
+  { title: "CID MOOSA", hero: "Dileep", year: "2003", type: "Slapstick Comedy" },
+  { title: "MEESA MADHAVAN", hero: "Dileep", year: "2002", type: "Romantic Comedy" },
+  { title: "KUNJIKOONAN", hero: "Dileep", year: "2002", type: "Comedy Drama" },
+  { title: "TWO COUNTRIES", hero: "Dileep", year: "2015", type: "Comedy" },
+  { title: "CLASSMATES", hero: "Prithviraj Sukumaran", year: "2006", type: "Campus Thriller" },
+  { title: "NANDANAM", hero: "Prithviraj Sukumaran", year: "2002", type: "Fantasy Romance" },
+  { title: "ANANTHABHADRAM", hero: "Prithviraj Sukumaran", year: "2005", type: "Thriller" },
+  { title: "VALIYETTAN", hero: "Mammootty", year: "2000", type: "Action Drama" },
+  { title: "BLACK", hero: "Mammootty", year: "2004", type: "Action Drama" },
+  { title: "KAAZHCHA", hero: "Mammootty", year: "2004", type: "Drama" },
+  { title: "THANMATHRA", hero: "Mohanlal", year: "2005", type: "Emotional Drama" },
+  { title: "PERUMAZHAKALAM", hero: "Dileep", year: "2004", type: "Drama" },
+  { title: "CHATHIKKATHA CHANTHU", hero: "Jayasurya", year: "2004", type: "Comedy" },
+  { title: "BALRAM VS TARADAS", hero: "Mammootty", year: "2006", type: "Action" },
+  { title: "KILUKKILUKKAM", hero: "Kunchacko Boban", year: "2006", type: "Comedy" },
+  { title: "MAYABAZAR", hero: "Mammootty", year: "2008", type: "Action Comedy" },
+  { title: "ANNAN THAMPI", hero: "Mammootty", year: "2008", type: "Action Comedy" },
+  { title: "PAZHASSI RAJA", hero: "Mammootty", year: "2009", type: "Period War" },
+  { title: "PATTALAM", hero: "Mammootty", year: "2003", type: "Action Drama" },
+  { title: "NARASIMHAM", hero: "Mohanlal", year: "2000", type: "Mass Action" },
+  { title: "RAVANAPRABHU", hero: "Mohanlal", year: "2001", type: "Action Drama" },
+  { title: "CHOTTA MUMBAI", hero: "Mohanlal", year: "2007", type: "Action Comedy" },
+  { title: "HELLO", hero: "Mohanlal", year: "2007", type: "Comedy Thriller" },
+  { title: "KALYANARAMAN", hero: "Dileep", year: "2002", type: "Comedy" },
+  { title: "THENKASIPATTANAM", hero: "Suresh Gopi", year: "2000", type: "Action Comedy" },
+  { title: "CHRONIC BACHELOR", hero: "Mammootty", year: "2003", type: "Comedy Drama" },
+  { title: "KAZHINJA KALAM", hero: "Jayaram", year: "2001", type: "Family Drama" },
+
+  // 2010 - 2015 Hits
+  { title: "DRISHYAM", hero: "Mohanlal", year: "2013", type: "Crime Mystery" },
+  { title: "PREMAM", hero: "Nivin Pauly", year: "2015", type: "Romance Drama" },
+  { title: "BANGALORE DAYS", hero: "Dulquer Salmaan", year: "2014", type: "Coming-of-Age Comedy" },
+  { title: "CHARLIE", hero: "Dulquer Salmaan", year: "2015", type: "Romantic Drama" },
+  { title: "ENNU NINTE MOIDEEN", hero: "Prithviraj Sukumaran", year: "2015", type: "Romantic Tragedy" },
+  { title: "POKKIRI RAJA", hero: "Mammootty", year: "2010", type: "Mass Action" },
+  { title: "TRAFFIC", hero: "Sreenivasan", year: "2011", type: "Thriller" },
+  { title: "CHRISTIAN BROTHERS", hero: "Mohanlal", year: "2011", type: "Action" },
+  { title: "INDIAN RUPEE", hero: "Prithviraj Sukumaran", year: "2011", type: "Drama" },
+  { title: "URUMI", hero: "Prithviraj Sukumaran", year: "2011", type: "Period Action" },
+  { title: "MELVILASAM", hero: "Suresh Gopi", year: "2011", type: "Courtroom Drama" },
+  { title: "GRANDMASTER", hero: "Mohanlal", year: "2012", type: "Investigative Thriller" },
+  { title: "RUN BABY RUN", hero: "Mohanlal", year: "2012", type: "Satirical Thriller" },
+  { title: "DIAMOND NECKLACE", hero: "Fahadh Faasil", year: "2012", type: "Drama" },
+  { title: "22 FEMALE KOTTAYAM", hero: "Fahadh Faasil", year: "2012", type: "Thriller" },
+  { title: "ORDINARY", hero: "Kunchacko Boban", year: "2012", type: "Comedy Drama" },
+  { title: "AYALUM NJANUM THANAAL", hero: "Prithviraj Sukumaran", year: "2012", type: "Romantic Drama" },
+  { title: "THATTATHIN MARAYATHU", hero: "Nivin Pauly", year: "2012", type: "Romance" },
+  { title: "SPIRIT", hero: "Mohanlal", year: "2012", type: "Drama" },
+  { title: "MUMBAI POLICE", hero: "Prithviraj Sukumaran", year: "2013", type: "Investigative Thriller" },
+  { title: "MEMORIES", hero: "Prithviraj Sukumaran", year: "2013", type: "Crime Thriller" },
+  { title: "LEFT RIGHT LEFT", hero: "Indrajith Sukumaran", year: "2013", type: "Political Drama" },
+  { title: "AMEN", hero: "Fahadh Faasil", year: "2013", type: "Musical Comedy" },
+  { title: "NERAM", hero: "Nivin Pauly", year: "2013", type: "Thriller Comedy" },
+  { title: "ANNAYUM RASOOLUM", hero: "Fahadh Faasil", year: "2013", type: "Romantic Drama" },
+  { title: "PUNYALAN AGARBATTIS", hero: "Jayasurya", year: "2013", type: "Satire" },
+  { title: "7TH DAY", hero: "Prithviraj Sukumaran", year: "2014", type: "Mystery Thriller" },
+  { title: "EYYOBINTE PUSTHAKAM", hero: "Fahadh Faasil", year: "2014", type: "Period Drama" },
+  { title: "1983", hero: "Nivin Pauly", year: "2014", type: "Sports Drama" },
+  { title: "VELLIMOONGA", hero: "Biju Menon", year: "2014", type: "Political Comedy" },
+  { title: "PATHEMARI", hero: "Mammootty", year: "2015", type: "Drama" },
+  { title: "CHANDRETTAN EVIDEYA", hero: "Dileep", year: "2015", type: "Comedy" },
+  { title: "ORU VADAKKAN SELFIE", hero: "Nivin Pauly", year: "2015", type: "Comedy Drama" },
+
+  // 2016 - 2020 Hits
+  { title: "PULIMURUGAN", hero: "Mohanlal", year: "2016", type: "Action Adventure" },
+  { title: "MAHESHINTE PRATHIKARAM", hero: "Fahadh Faasil", year: "2016", type: "Comedy Drama" },
+  { title: "ACTION HERO BIJU", hero: "Nivin Pauly", year: "2016", type: "Police Procedural" },
+  { title: "KASABA", hero: "Mammootty", year: "2016", type: "Action" },
+  { title: "OPPAM", hero: "Mohanlal", year: "2016", type: "Crime Thriller" },
+  { title: "ANANDAM", hero: "Roshan Mathew", year: "2016", type: "Coming-of-Age" },
+  { title: "KATTAPPANAYILE RITHWIK ROSHAN", hero: "Vishnu Unnikrishnan", year: "2016", type: "Comedy" },
+  { title: "THONDIMUTHALUM DRIKSAKSHIYUM", hero: "Fahadh Faasil", year: "2017", type: "Crime Drama" },
+  { title: "ANGAMALY DIARIES", hero: "Antony Varghese", year: "2017", type: "Crime Drama" },
+  { title: "THE GREAT FATHER", hero: "Mammootty", year: "2017", type: "Action Thriller" },
+  { title: "RAMALEELA", hero: "Dileep", year: "2017", type: "Political Thriller" },
+  { title: "MAYANADHI", hero: "Tovino Thomas", year: "2017", type: "Romance Thriller" },
+  { title: "GODHA", hero: "Tovino Thomas", year: "2017", type: "Sports Comedy" },
+  { title: "EZRA", hero: "Prithviraj Sukumaran", year: "2017", type: "Horror Thriller" },
+  { title: "PARAVA", hero: "Shane Nigam", year: "2017", type: "Drama" },
+  { title: "SUDANI FROM NIGERIA", hero: "Soubin Shahir", year: "2018", type: "Sports Drama" },
+  { title: "KAYAMKULAM KOCHUNNI", hero: "Nivin Pauly", year: "2018", type: "Period Action" },
+  { title: "CARBON", hero: "Fahadh Faasil", year: "2018", type: "Adventure Drama" },
+  { title: "ODIYAN", hero: "Mohanlal", year: "2018", type: "Fantasy Action" },
+  { title: "JOSEPH", hero: "Joju George", year: "2018", type: "Crime Thriller" },
+  { title: "VARATHAN", hero: "Fahadh Faasil", year: "2018", type: "Survival Thriller" },
+  { title: "LUCIFER", hero: "Mohanlal", year: "2019", type: "Political Action" },
+  { title: "HELEN", hero: "Anna Ben", year: "2019", type: "Survival Thriller" },
+  { title: "MOOTHON", hero: "Nivin Pauly", year: "2019", type: "Drama" },
+  { title: "MAMANGAM", hero: "Mammootty", year: "2019", type: "Period Action" },
+  { title: "KETTIYOLAANU ENTE MALAKHA", hero: "Asif Ali", year: "2019", type: "Family Drama" },
+  { title: "ISHQ", hero: "Shane Nigam", year: "2019", type: "Romantic Thriller" },
+  { title: "VIJAY SUPERUM POURNAMIYUM", hero: "Asif Ali", year: "2019", type: "Romance Comedy" },
+  { title: "DRISHYAM 2", hero: "Mohanlal", year: "2021", type: "Crime Thriller" },
+  { title: "ANJAAM PATHIRAA", hero: "Kunchacko Boban", year: "2020", type: "Psychological Thriller" },
+  { title: "KAPPELA", hero: "Anna Ben", year: "2020", type: "Romantic Thriller" },
+  { title: "TRANCE", hero: "Fahadh Faasil", year: "2020", type: "Psychological Drama" },
+  { title: "VARANE AVASHYAMUND", hero: "Dulquer Salmaan", year: "2020", type: "Family Comedy" },
+
+  // 2021 - 2023 Hits
+  { title: "KURUP", hero: "Dulquer Salmaan", year: "2021", type: "Crime Thriller" },
+  { title: "MALIK", hero: "Fahadh Faasil", year: "2021", type: "Political Drama" },
+  { title: "THE GREAT INDIAN KITCHEN", hero: "Suraj Venjaramoodu", year: "2021", type: "Drama" },
+  { title: "OPERATION JAVA", hero: "Lukman Avaran", year: "2021", type: "Cyber Thriller" },
+  { title: "AJAGAJANTHARAM", hero: "Antony Varghese", year: "2021", type: "Action Thriller" },
+  { title: "MINNAL MURALI", hero: "Tovino Thomas", year: "2021", type: "Superhero Action" },
+  { title: "MEPPADIYAN", hero: "Unni Mukundan", year: "2021", type: "Drama" },
+  { title: "HRIDAYAM", hero: "Pranav Mohanlal", year: "2022", type: "Romantic Drama" },
+  { title: "BHEESHMA PARVAM", hero: "Mammootty", year: "2022", type: "Action Drama" },
+  { title: "JANA GANA MANA", hero: "Prithviraj Sukumaran", year: "2022", type: "Legal Thriller" },
+  { title: "THALLUMAALA", hero: "Tovino Thomas", year: "2022", type: "Action Comedy" },
+  { title: "JAYA JAYA JAYA JAYA HEY", hero: "Basil Joseph", year: "2022", type: "Dark Comedy" },
+  { title: "BRO DADDY", hero: "Mohanlal", year: "2022", type: "Family Comedy" },
+  { title: "BHOOTHAKAALAM", hero: "Shane Nigam", year: "2022", type: "Horror Thriller" },
+  { title: "KOOMAN", hero: "Asif Ali", year: "2022", type: "Thriller" },
+  { title: "SITA RAMAM", hero: "Dulquer Salmaan", year: "2022", type: "Romance" },
+  { title: "2018", hero: "Tovino Thomas", year: "2023", type: "Survival Drama" },
+  { title: "RDX", hero: "Antony Varghese", year: "2023", type: "Action" },
+  { title: "KANNUR SQUAD", hero: "Mammootty", year: "2023", type: "Investigative Thriller" },
+  { title: "ROMANCHAM", hero: "Soubin Shahir", year: "2023", type: "Horror Comedy" },
+  { title: "NANPAKAL NERATHU MAYAKKAM", hero: "Mammootty", year: "2023", type: "Surreal Drama" },
+  { title: "KAATHAL THE CORE", hero: "Mammootty", year: "2023", type: "Drama" },
+  { title: "NERU", hero: "Mohanlal", year: "2023", type: "Courtroom Drama" },
+  { title: "PADMINI", hero: "Kunchacko Boban", year: "2023", type: "Comedy" },
+  { title: "PACHUVUM ATHBUTHA VILAKKUM", hero: "Fahadh Faasil", year: "2023", type: "Comedy Drama" },
+  { title: "KING OF KOTHA", hero: "Dulquer Salmaan", year: "2023", type: "Action" },
+  { title: "VOICE OF SATHYANATHAN", hero: "Dileep", year: "2023", type: "Comedy Drama" },
+  { title: "IRETTA", hero: "Joju George", year: "2023", type: "Crime Thriller" },
+
+  // 2024 - 2025 Recent & Upcoming Blockbusters
+  { title: "MANJUMMEL BOYS", hero: "Soubin Shahir", year: "2024", type: "Survival Thriller" },
+  { title: "AAVESHAM", hero: "Fahadh Faasil", year: "2024", type: "Action Comedy" },
+  { title: "BRAMAYUGAM", hero: "Mammootty", year: "2024", type: "Horror Mystery" },
+  { title: "GURUVAYOOR AMBALANADAYIL", hero: "Prithviraj Sukumaran", year: "2024", type: "Comedy Drama" },
+  { title: "KISHKINTHA KAANDAM", hero: "Asif Ali", year: "2024", type: "Mystery Thriller" },
+  { title: "TURBO", hero: "Mammootty", year: "2024", type: "Mass Action" },
+  { title: "VAAZHA", hero: "Siju Sunny", year: "2024", type: "Comedy Drama" },
+  { title: "ARM", hero: "Tovino Thomas", year: "2024", type: "Action Adventure" },
+  { title: "VARSHANGALKKU SHESHAM", hero: "Pranav Mohanlal", year: "2024", type: "Musical Drama" },
+  { title: "MALAIKOTTAI VALIBAN", hero: "Mohanlal", year: "2024", type: "Period Action" },
+  { title: "ULOZHUKKU", hero: "Urvashi", year: "2024", type: "Drama" },
+  { title: "PANI", hero: "Joju George", year: "2024", type: "Action Thriller" },
+  { title: "AADUJEEVITHAM THE GOAT LIFE", hero: "Prithviraj Sukumaran", year: "2024", type: "Survival Drama" },
+  { title: "L2 EMPURAAN", hero: "Mohanlal", year: "2025", type: "Political Action" },
+  { title: "THUDARUM", hero: "Mohanlal", year: "2025", type: "Action Drama" },
+  { title: "LOKAH CHAPTER 1 CHANDRA", hero: "Tovino Thomas", year: "2025", type: "Sci-Fi Action" },
+  { title: "SARVAM MAYA", hero: "Mathew Thomas", year: "2025", type: "Family Drama" },
+
+  // Newly Added Popular Easy Movies (200 Additional Popular Movies)
+  { title: "AADU", hero: "Jayasurya", year: "2015", type: "Slapstick Comedy" },
+  { title: "AADU 2", hero: "Jayasurya", year: "2017", type: "Slapstick Comedy" },
+  { title: "AMAR AKBAR ANTHONY", hero: "Prithviraj Sukumaran", year: "2015", type: "Comedy Drama" },
+  { title: "KATTAPPANA", hero: "Vishnu Unnikrishnan", year: "2016", type: "Comedy" },
+  { title: "HONEY BEE", hero: "Asif Ali", year: "2013", type: "Comedy" },
+  { title: "THATTADIN MARAYATHU", hero: "Nivin Pauly", year: "2012", type: "Romance" },
+  { title: "DAVEED", hero: "Antony Varghese", year: "2024", type: "Action" },
+  { title: "KUNJIRAMAYANAM", hero: "Vineeth Sreenivasan", year: "2015", type: "Comedy" },
+  { title: "MY BOSS", hero: "Dileep", year: "2012", type: "Romantic Comedy" },
+  { title: "JAN-E-MAN", hero: "Basil Joseph", year: "2021", type: "Comedy Drama" },
+  { title: "CHOTTA MUMBAI", hero: "Mohanlal", year: "2007", type: "Mass Action" },
+  { title: "NERAM", hero: "Nivin Pauly", year: "2013", type: "Comedy Thriller" },
+  { title: "VETTAIYAN", hero: "Fahadh Faasil", year: "2024", type: "Action Drama" },
+  { title: "ANJAAM PATHIRA", hero: "Kunchacko Boban", year: "2020", type: "Thriller" },
+  { title: "JOSEY", hero: "Dileep", year: "2006", type: "Comedy" },
+  { title: "MALLU SINGH", hero: "Unni Mukundan", year: "2012", type: "Action Comedy" },
+  { title: "THENKASIPATTANAM", hero: "Suresh Gopi", year: "2000", type: "Action Comedy" },
+  { title: "THOMMANUM MAKKALUM", hero: "Mammootty", year: "2005", type: "Action Comedy" },
+  { title: "PULIVAL KALYANAM", hero: "Jayasurya", year: "2003", type: "Comedy" },
+  { title: "KARYASTHAN", hero: "Dileep", year: "2010", type: "Comedy" },
+  { title: "MAYAVI", hero: "Mammootty", year: "2007", type: "Action Comedy" },
+  { title: "TURBO", hero: "Mammootty", year: "2024", type: "Action" },
+  { title: "RUNWAY", hero: "Dileep", year: "2004", type: "Action Thriller" },
+  { title: "LION", hero: "Dileep", year: "2006", type: "Political Thriller" },
+  { title: "MARYKKUNDORU KUNJAADU", hero: "Dileep", year: "2010", type: "Comedy" },
+  { title: "RING MASTER", hero: "Dileep", year: "2014", type: "Comedy" },
+  { title: "PANDIPPADA", hero: "Dileep", year: "2005", type: "Comedy" },
+  { title: "SPEED TRACK", hero: "Dileep", year: "2007", type: "Sports Drama" },
+  { title: "CRAZY GOPALAN", hero: "Dileep", year: "2008", type: "Comedy" },
+  { title: "CHANDUPOTTO", hero: "Dileep", year: "2005", type: "Drama" },
+  { title: "CHINTHAMANI KOLACASE", hero: "Suresh Gopi", year: "2006", type: "Legal Thriller" },
+  { title: "COMMISSIONER", hero: "Suresh Gopi", year: "1994", type: "Action" },
+  { title: "LIFER", hero: "Mohanlal", year: "2019", type: "Action" },
+  { title: "ELAVAMKOODU DESAM", hero: "Suresh Gopi", year: "1998", type: "Period Action" },
+  { title: "FIR", hero: "Suresh Gopi", year: "1999", type: "Action Thriller" },
+  { title: "LELEM", hero: "Suresh Gopi", year: "1997", type: "Action Drama" },
+  { title: "PATHRAM", hero: "Suresh Gopi", year: "1999", type: "Journalism Thriller" },
+  { title: "DHARMA DURAI", hero: "Mohanlal", year: "1991", type: "Action" },
+  { title: "NATTURAJAVU", hero: "Mohanlal", year: "2004", type: "Action Drama" },
+  { title: "BALRAM", hero: "Mammootty", year: "1991", type: "Action" },
+  { title: "KASINATHAN", hero: "Suresh Gopi", year: "2000", type: "Action" },
+  { title: "BHARATHCHANDRAN IPS", hero: "Suresh Gopi", year: "2005", type: "Action Thriller" },
+  { title: "TIGER", hero: "Suresh Gopi", year: "2006", type: "Action Thriller" },
+  { title: "SG 250", hero: "Suresh Gopi", year: "2023", type: "Action" },
+  { title: "PAANJALANYADHAM", hero: "Suresh Gopi", year: "1997", type: "Action Drama" },
+  { title: "VALIYETTAN", hero: "Mammootty", year: "2000", type: "Action Drama" },
+  { title: "PAPPA PRIYAPETTA PAPPA", hero: "Rahman", year: "1989", type: "Comedy" },
+  { title: "MARIKKUKAYILLA", hero: "Mammootty", year: "1985", type: "Drama" },
+  { title: "NEW DELHI", hero: "Mammootty", year: "1987", type: "Crime Thriller" },
+  { title: "AVANAZHI", hero: "Mammootty", year: "1986", type: "Action" },
+  { title: "INSPECTOR BALRAM", hero: "Mammootty", year: "1991", type: "Action" },
+  { title: "AUGUST 1", hero: "Mammootty", year: "1988", type: "Investigative Thriller" },
+  { title: "ORU CBI DIARY KURIPPU", hero: "Mammootty", year: "1988", type: "Mystery Thriller" },
+  { title: "JAGRATHA", hero: "Mammootty", year: "1989", type: "Mystery Thriller" },
+  { title: "SETHURAMA IYER CBI", hero: "Mammootty", year: "2004", type: "Investigative Thriller" },
+  { title: "NERARIYAN CBI", hero: "Mammootty", year: "2005", type: "Investigative Thriller" },
+  { title: "CBI 5 THE BRAIN", hero: "Mammootty", year: "2022", type: "Investigative Thriller" },
+  { title: "VALLATTI", hero: "Soubin Shahir", year: "2023", type: "Adventure" },
+  { title: "SATHYAM SHIVAM SUNDARAM", hero: "Kunchacko Boban", year: "2000", type: "Comedy" },
+  { title: "DOSTH", hero: "Kunchacko Boban", year: "2001", type: "Comedy" },
+  { title: "NAXATRAKANNULLA RAJAKUMARAN", hero: "Prithviraj Sukumaran", year: "2002", type: "Romance" },
+  { title: "SWAPNAKOODU", hero: "Prithviraj Sukumaran", year: "2003", type: "Romantic Comedy" },
+  { title: "CHOCOLATE", hero: "Prithviraj Sukumaran", year: "2007", type: "Romance Comedy" },
+  { title: "ROBINHOOD", hero: "Prithviraj Sukumaran", year: "2009", type: "Action Thriller" },
+  { title: "ANWAR", hero: "Prithviraj Sukumaran", year: "2010", type: "Action Thriller" },
+  { title: "HERO", hero: "Prithviraj Sukumaran", year: "2012", type: "Action" },
+  { title: "JAMES AND ALICE", hero: "Prithviraj Sukumaran", year: "2016", type: "Romantic Drama" },
+  { title: "DRIVING LICENCE", hero: "Prithviraj Sukumaran", year: "2019", type: "Comedy Drama" },
+  { title: "KADUVA", hero: "Prithviraj Sukumaran", year: "2022", type: "Action" },
+  { title: "GOLD", hero: "Prithviraj Sukumaran", year: "2022", type: "Comedy Thriller" },
+  { title: "KAAPA", hero: "Prithviraj Sukumaran", year: "2022", type: "Action Thriller" },
+  { title: "AANAMATHE SWARNAM", hero: "Jagadish", year: "1993", type: "Comedy" },
+  { title: "MUKHAM", hero: "Mohanlal", year: "1990", type: "Investigative Thriller" },
+  { title: "NO 20 MADRAS MAIL", hero: "Mohanlal", year: "1990", type: "Action Thriller" },
+  { title: "AEY AUTO", hero: "Mohanlal", year: "1990", type: "Romantic Action" },
+  { title: "INDRAJALAM", hero: "Mohanlal", year: "1990", type: "Action" },
+  { title: "KILUKKAMPETTI", hero: "Jayaram", year: "1991", type: "Comedy" },
+  { title: "SANDESHAM", hero: "Sreenivasan", year: "1991", type: "Political Satire" },
+  { title: "MITHUNAM", hero: "Mohanlal", year: "1993", type: "Drama" },
+  { title: "MANATHE KOTTARAM", hero: "Dileep", year: "1994", type: "Comedy" },
+  { title: "MADHARASI", hero: "Arjun", year: "2006", type: "Action" },
+  { title: "VARAVELPU", hero: "Mohanlal", year: "1989", type: "Satire Drama" },
+  { title: "BOEING BOEING", hero: "Mohanlal", year: "1985", type: "Comedy" },
+  { title: "ARAM + ARAM = KINNARAM", hero: "Mohanlal", year: "1985", type: "Comedy" },
+  { title: "ODDARUTHAMMAAVA AALARIYAM", hero: "Mukesh", year: "1984", type: "Comedy" },
+  { title: "MAZHAVIL KAVADI", hero: "Jayaram", year: "1989", type: "Comedy Drama" },
+  { title: "THOOVANATHUMBIKAL", hero: "Mohanlal", year: "1987", type: "Romantic Drama" },
+  { title: "NAMUKKU PARAKKAN MUTHIRITHOPPUKAL", hero: "Mohanlal", year: "1986", type: "Romance" },
+  { title: "MOONNAM PAKKAM", hero: "Thilakan", year: "1988", type: "Tragedy Drama" },
+  { title: "DASHARATHAM", hero: "Mohanlal", year: "1989", type: "Drama" },
+  { title: "HIS HIGHNESS ABDULLAH", hero: "Mohanlal", year: "1990", type: "Musical Thriller" },
+  { title: "BHARATHAM", hero: "Mohanlal", year: "1991", type: "Musical Drama" },
+  { title: "KAMALADALAM", hero: "Mohanlal", year: "1992", type: "Musical Drama" },
+  { title: "RAJAVINTE MAKAN", hero: "Mohanlal", year: "1986", type: "Crime Action" },
+  { title: "NEW DELHI", hero: "Mammootty", year: "1987", type: "Action Thriller" },
+  { title: "KOTTAAYAM KUNJANACHAN", hero: "Mammootty", year: "1990", type: "Action Comedy" },
+  { title: "INSPECTOR BALRAM", hero: "Mammootty", year: "1991", type: "Action" },
+  { title: "KAURAVAR", hero: "Mammootty", year: "1992", type: "Action Drama" },
+  { title: "DHURUVA MUTHU", hero: "Suresh Gopi", year: "1998", type: "Action" },
+  { title: "PAPPI APPACHA", hero: "Dileep", year: "2010", type: "Comedy" },
+  { title: "SOUND THOMA", hero: "Dileep", year: "2013", type: "Comedy" },
+  { title: "IVAR VIVAHITHARAYAL", hero: "Jayasurya", year: "2009", type: "Comedy" },
+  { title: "HAPPY HUSBANDS", hero: "Jayasurya", year: "2010", type: "Comedy" },
+  { title: "THREE KINGS", hero: "Kunchacko Boban", year: "2011", type: "Comedy" },
+  { title: "SENIORS", hero: "Jayasurya", year: "2011", type: "Comedy Mystery" },
+  { title: "MALLU SINGH", hero: "Unni Mukundan", year: "2012", type: "Comedy Action" },
+  { title: "PERUCHAZHI", hero: "Mohanlal", year: "2014", type: "Satirical Comedy" },
+  { title: "AADU THOMA", hero: "Mohanlal", year: "1995", type: "Mass Action" },
+  { title: "MADURA RAJA", hero: "Mammootty", year: "2019", type: "Mass Action" },
+  { title: "SHYLOCK", hero: "Mammootty", year: "2020", type: "Action Comedy" },
+  { title: "ONE", hero: "Mammootty", year: "2021", type: "Political Drama" },
+  { title: "PRIEST", hero: "Mammootty", year: "2021", type: "Horror Thriller" },
+  { title: "RORSCHACH", hero: "Mammootty", year: "2022", type: "Psychological Thriller" },
+  { title: "CHRISTOPHER", hero: "Mammootty", year: "2023", type: "Action Thriller" },
+  { title: "MONSTER", hero: "Mohanlal", year: "2022", type: "Crime Thriller" },
+  { title: "AALAVANDHAN", hero: "Kamal Haasan", year: "2001", type: "Action Thriller" },
+  { title: "NEELAKASHAM PACHAKADAL CHUVANNA BHOOMI", hero: "Dulquer Salmaan", year: "2013", type: "Road Adventure" },
+  { title: "OK KANMANI", hero: "Dulquer Salmaan", year: "2015", type: "Romance" },
+  { title: "SOLO", hero: "Dulquer Salmaan", year: "2017", type: "Anthology" },
+  { title: "ZAKARIYAYUDE GARBHINIKAL", hero: "Rima Kallingal", year: "2013", type: "Drama" },
+  { title: "NORTH 24 KAATHAM", hero: "Fahadh Faasil", year: "2013", type: "Adventure Drama" },
+  { title: "GODS OWN COUNTRY", hero: "Fahadh Faasil", year: "2014", type: "Drama Thriller" },
+  { title: "ISAKKINTE KADHAL", hero: "Lal", year: "2015", type: "Drama" },
+  { title: "PATHEMARI", hero: "Mammootty", year: "2015", type: "Drama" },
+  { title: "JAMNA PYARI", hero: "Kunchacko Boban", year: "2015", type: "Comedy" },
+  { title: "KOHINOOR", hero: "Asif Ali", year: "2015", type: "Heist Comedy" },
+  { title: "LORD LIVINGSTONE 7000 KANDI", hero: "Kunchacko Boban", year: "2015", type: "Fantasy" },
+  { title: "ADVENTURES OF OMANAKUTTAN", hero: "Asif Ali", year: "2017", type: "Experimental Comedy" },
+  { title: "SUNDAY HOLIDAY", hero: "Asif Ali", year: "2017", type: "Comedy Drama" },
+  { title: "B TECH", hero: "Asif Ali", year: "2018", type: "Campus Drama" },
+  { title: "IBLIS", hero: "Asif Ali", year: "2018", type: "Fantasy Comedy" },
+  { title: "KAKSHI AMMINIPILLA", hero: "Asif Ali", year: "2019", type: "Comedy Legal" },
+  { title: "ELLAM SHERIYAKUM", hero: "Asif Ali", year: "2021", type: "Political Drama" },
+  { title: "INNALEYUM INNUM", hero: "Asif Ali", year: "2022", type: "Drama" },
+  { title: "TIANANMEN", hero: "Tovino Thomas", year: "2018", type: "Drama" },
+  { title: "MARATHON", hero: "Tovino Thomas", year: "2019", type: "Sports" },
+  { title: "KALKAYUDE KADHA", hero: "Tovino Thomas", year: "2019", type: "Action" },
+  { title: "KILOMETRES AND KILOMETRES", hero: "Tovino Thomas", year: "2020", type: "Comedy Drama" },
+  { title: "KALAKKA", hero: "Tovino Thomas", year: "2021", type: "Action" },
+  { title: "DEAR FRIEND", hero: "Tovino Thomas", year: "2022", type: "Drama" },
+  { title: "VAASHI", hero: "Tovino Thomas", year: "2022", type: "Legal Drama" },
+  { title: "ARATTU", hero: "Mohanlal", year: "2022", type: "Action Comedy" },
+  { title: "VALATTY", hero: "Roshan Mathew", year: "2023", type: "Adventure" },
+  { title: "SULAIKHA MANZIL", hero: "Lukman Avaran", year: "2023", type: "Family Comedy" },
+  { title: "MADANOLSAVAM", hero: "Suraj Venjaramoodu", year: "2023", type: "Satire Comedy" },
+  { title: "KASARGOLD", hero: "Asif Ali", year: "2023", type: "Action Thriller" },
+  { title: "BOSANDCO", hero: "Nivin Pauly", year: "2023", type: "Comedy" },
+  { title: "CHAVVER", hero: "Kunchacko Boban", year: "2023", type: "Political Action" },
+  { title: "GARUDAN", hero: "Suresh Gopi", year: "2023", type: "Legal Thriller" },
+  { title: "VALAATTY", hero: "Roshan Mathew", year: "2023", type: "Family Drama" },
+  { title: "MALAYALEE FROM INDIA", hero: "Nivin Pauly", year: "2024", type: "Comedy Drama" },
+  { title: "THALAVAN", hero: "Biju Menon", year: "2024", type: "Investigative Thriller" },
+  { title: "SECRET", hero: "Dhyan Sreenivasan", year: "2024", type: "Thriller" },
+  { title: "ADIOS AMIGO", hero: "Asif Ali", year: "2024", type: "Comedy" },
+  { title: "ASIF ALI 50", hero: "Asif Ali", year: "2024", type: "Drama" },
+  { title: "BIG B", hero: "Mammootty", year: "2007", type: "Action Thriller" },
+  { title: "DADDY COOL", hero: "Mammootty", year: "2009", type: "Action Comedy" },
+  { title: "BEST ACTOR", hero: "Mammootty", year: "2010", type: "Comedy Drama" },
+  { title: "IMMANUEL", hero: "Mammootty", year: "2013", type: "Drama" },
+  { title: "MUNTHIRIVALLIKAL THALIRKKUMBOL", hero: "Mohanlal", year: "2017", type: "Family Drama" },
+  { title: "VELIPADINTE PUSTHAKAM", hero: "Mohanlal", year: "2017", type: "Action Comedy" },
+  { title: "AANADHAM", hero: "Thomas Mathew", year: "2016", type: "Youth" },
+  { title: "QUEEN", hero: "Saniya Iyappan", year: "2018", type: "Campus Drama" },
+  { title: "JUNE", hero: "Rajisha Vijayan", year: "2019", type: "Coming-of-Age" },
+  { title: "SUPER SHARANYA", hero: "Anaswara Rajan", year: "2022", type: "College Comedy" },
+  { title: "MIKE", hero: "Ranjith Sajeev", year: "2022", type: "Drama" },
+  { title: "THALLUMALA", hero: "Tovino Thomas", year: "2022", type: "Action" }
+],
+      KOLLYWOOD: [
+  // Blockbusters & Modern Classics (2020 - 2025)
+  { title: "LEO", hero: "Vijay", year: "2023", type: "Action Thriller" },
+  { title: "VIKRAM", hero: "Kamal Haasan", year: "2022", type: "Action Thriller" },
+  { title: "JAILER", hero: "Rajinikanth", year: "2023", type: "Action Comedy" },
+  { title: "GOAT", hero: "Vijay", year: "2024", type: "Sci-Fi Action" },
+  { title: "AMARAN", hero: "Sivakarthikeyan", year: "2024", type: "Biographical Action" },
+  { title: "KANGUVA", hero: "Suriya", year: "2024", type: "Period Action" },
+  { title: "RAAYAN", hero: "Dhanush", year: "2024", type: "Action Drama" },
+  { title: "INDIAN 2", hero: "Kamal Haasan", year: "2024", type: "Vigilante Action" },
+  { title: "VETTAIYAN", hero: "Rajinikanth", year: "2024", type: "Action Drama" },
+  { title: "THANGALAAN", hero: "Chiyaan Vikram", year: "2024", type: "Period Action" },
+  { title: "AYALAAN", hero: "Sivakarthikeyan", year: "2024", type: "Sci-Fi Comedy" },
+  { title: "GARUDAN", hero: "Soori", year: "2024", type: "Action Drama" },
+  { title: "MAAHARAJA", hero: "Vijay Sethupathi", year: "2024", type: "Action Thriller" },
+  { title: "CAPTAIN MILLER", hero: "Dhanush", year: "2024", type: "Period Action" },
+  { title: "VARISU", hero: "Vijay", year: "2023", type: "Family Drama" },
+  { title: "THUNIVU", hero: "Ajith Kumar", year: "2023", type: "Heist Action" },
+  { title: "PS 1", hero: "Chiyaan Vikram", year: "2022", type: "Period Epic" },
+  { title: "PS 2", hero: "Chiyaan Vikram", year: "2023", type: "Period Epic" },
+  { title: "MAAMANNAN", hero: "Udhayanidhi Stalin", year: "2023", type: "Political Drama" },
+  { title: "JIGARTHANDA DOUBLE X", hero: "Raghava Lawrence", year: "2023", type: "Action Comedy" },
+  { title: "CHITHHA", hero: "Siddharth", year: "2023", type: "Emotional Drama" },
+  { title: "MARK ANTONY", hero: "Vishal", year: "2023", type: "Sci-Fi Comedy" },
+  { title: "MAAVEERAN", hero: "Sivakarthikeyan", year: "2023", type: "Fantasy Action" },
+  { title: "VIDUTHALAI PART 1", hero: "Soori", year: "2023", type: "Crime Drama" },
+  { title: "PATHU THALA", hero: "Silambarasan", year: "2023", type: "Action Thriller" },
+  { title: "BEAST", hero: "Vijay", year: "2022", type: "Action" },
+  { title: "VALIMAI", hero: "Ajith Kumar", year: "2022", type: "Action" },
+  { title: "LOVE TODAY", hero: "Pradeep Ranganathan", year: "2022", type: "Romantic Comedy" },
+  { title: "DON", hero: "Sivakarthikeyan", year: "2022", type: "Coming-of-Age Comedy" },
+  { title: "SARDAR", hero: "Karthi", year: "2022", type: "Spy Action" },
+  { title: "THIRUCHITRAMBALAM", hero: "Dhanush", year: "2022", type: "Romantic Comedy" },
+  { title: "VIRUMAN", hero: "Karthi", year: "2022", type: "Action Drama" },
+  { title: "MASTER", hero: "Vijay", year: "2021", type: "Action Thriller" },
+  { title: "DOCTOR", hero: "Sivakarthikeyan", year: "2021", type: "Dark Comedy Thriller" },
+  { title: "MAANAADU", hero: "Silambarasan", year: "2021", type: "Sci-Fi Thriller" },
+  { title: "SARPATTA PARAMBARAI", hero: "Arya", year: "2021", type: "Sports Action" },
+  { title: "JAI BHIM", hero: "Suriya", year: "2021", type: "Legal Drama" },
+  { title: "KARNAN", hero: "Dhanush", year: "2021", type: "Action Drama" },
+  { title: "ANNATTHE", hero: "Rajinikanth", year: "2021", type: "Action Drama" },
+  { title: "SOORARAI POTTRU", hero: "Suriya", year: "2020", type: "Biographical Drama" },
+
+  // Golden Era Hits (2010 - 2019)
+  { title: "KAITHI", hero: "Karthi", year: "2019", type: "Action Thriller" },
+  { title: "ASURAN", hero: "Dhanush", year: "2019", type: "Action Drama" },
+  { title: "BIGIL", hero: "Vijay", year: "2019", type: "Sports Action" },
+  { title: "VISWASAM", hero: "Ajith Kumar", year: "2019", type: "Action Drama" },
+  { title: "PETTA", hero: "Rajinikanth", year: "2019", type: "Action Drama" },
+  { title: "SUPER DELUXE", hero: "Vijay Sethupathi", year: "2019", type: "Dark Comedy" },
+  { title: "PERANBU", hero: "Mammootty", year: "2019", type: "Emotional Drama" },
+  { title: "96", hero: "Vijay Sethupathi", year: "2018", type: "Romance Drama" },
+  { title: "RATSASAN", hero: "Vishnu Vishal", year: "2018", type: "Psychological Thriller" },
+  { title: "PAREYERUM PERUMAL", hero: "Kathir", year: "2018", type: "Drama" },
+  { title: "VADA CHENNAI", hero: "Dhanush", year: "2018", type: "Gangster Drama" },
+  { title: "KADAIKUTTY SINGAM", hero: "Karthi", year: "2018", type: "Family Drama" },
+  { title: "KAALA", hero: "Rajinikanth", year: "2018", type: "Action Drama" },
+  { title: "MER SAL", hero: "Vijay", year: "2017", type: "Action" },
+  { title: "VIKRAM VEDHA", hero: "Madhavan", year: "2017", type: "Action Thriller" },
+  { title: "VIVEGAM", hero: "Ajith Kumar", year: "2017", type: "Action Thriller" },
+  { title: "THEIR", hero: "Vijay", year: "2016", type: "Action" },
+  { title: "KABALI", hero: "Rajinikanth", year: "2016", type: "Action Drama" },
+  { title: "24", hero: "Suriya", year: "2016", type: "Sci-Fi Thriller" },
+  { title: "REMO", hero: "Sivakarthikeyan", year: "2016", type: "Romance Comedy" },
+  { title: "IRUDHI SUTTRU", hero: "Madhavan", year: "2016", type: "Sports Drama" },
+  { title: "DHRUVANGAL PATHINARU", hero: "Rahman", year: "2016", type: "Crime Thriller" },
+  { title: "VEDALAM", hero: "Ajith Kumar", year: "2015", type: "Action" },
+  { title: "I", hero: "Chiyaan Vikram", year: "2015", type: "Action Thriller" },
+  { title: "THANI ORUVAN", hero: "Jayam Ravi", year: "2015", type: "Action Thriller" },
+  { title: "OK KANMANI", hero: "Dulquer Salmaan", year: "2015", type: "Romance" },
+  { title: "YENNAI ARINDHAAL", hero: "Ajith Kumar", year: "2015", type: "Action" },
+  { title: "KATTHI", hero: "Vijay", year: "2014", type: "Action Drama" },
+  { title: "JIGARTHANDA", hero: "Siddharth", year: "2014", type: "Black Comedy" },
+  { title: "VELAIYILLA PATTADHARI", hero: "Dhanush", year: "2014", type: "Coming-of-Age Comedy" },
+  { title: "MADRAS", hero: "Karthi", year: "2014", type: "Political Drama" },
+  { title: "SOODHU KAVVUM", hero: "Vijay Sethupathi", year: "2013", type: "Dark Comedy" },
+  { title: "RAJA RANI", hero: "Arya", year: "2013", type: "Romantic Drama" },
+  { title: "ETHIR NEECHAL", hero: "Sivakarthikeyan", year: "2013", type: "Sports Comedy" },
+  { title: "VARUTHAPADATHA VALIBAR SANGAM", hero: "Sivakarthikeyan", year: "2013", type: "Comedy" },
+  { title: "THUPPAKKI", hero: "Vijay", year: "2012", type: "Action Thriller" },
+  { title: "NANBAN", hero: "Vijay", year: "2012", type: "Comedy Drama" },
+  { title: "3", hero: "Dhanush", year: "2012", type: "Psychological Romance" },
+  { title: "PIZZA", hero: "Vijay Sethupathi", year: "2012", type: "Horror Thriller" },
+  { title: "NADUVULA KONJAM PAKKATHA KANOM", hero: "Vijay Sethupathi", year: "2012", type: "Comedy" },
+  { title: "MANKATHA", hero: "Ajith Kumar", year: "2011", type: "Heist Action" },
+  { title: "KO", hero: "Jiiva", year: "2011", type: "Political Thriller" },
+  { title: "KANCHANA", hero: "Raghava Lawrence", year: "2011", type: "Horror Comedy" },
+  { title: "AADUKALAM", hero: "Dhanush", year: "2011", type: "Drama" },
+  { title: "ENTHIRAN", hero: "Rajinikanth", year: "2010", type: "Sci-Fi Action" },
+  { title: "SINGAM", hero: "Suriya", year: "2010", type: "Action" },
+  { title: "VINNAITHAANDI VARUVAAYA", hero: "Silambarasan", year: "2010", type: "Romance" },
+  { title: "AYIRATHIL ORUVAN", hero: "Karthi", year: "2010", type: "Adventure" },
+
+  // Classics (2000 - 2009)
+  { title: "AYAN", hero: "Suriya", year: "2009", type: "Action Thriller" },
+  { title: "MAGADHEERA TAMIL", hero: "Ram Charan", year: "2009", type: "Fantasy Action" },
+  { title: "SUBRAMANIAPURAM", hero: "Jai", year: "2008", type: "Period Crime Drama" },
+  { title: "SANTOSH SUBRAMANIAM", hero: "Jayam Ravi", year: "2008", type: "Family Comedy" },
+  { title: "YAARADI NEE MOHINI", hero: "Dhanush", year: "2008", type: "Romance Comedy" },
+  { title: "SAROJA", hero: "Shiva", year: "2008", type: "Mystery Comedy" },
+  { title: "DASAVATHARAM", hero: "Kamal Haasan", year: "2008", type: "Sci-Fi Action" },
+  { title: "SIVAJI THE BOSS", hero: "Rajinikanth", year: "2007", type: "Action Comedy" },
+  { title: "BILLA", hero: "Ajith Kumar", year: "2007", type: "Action Thriller" },
+  { title: "POKKIRI", hero: "Vijay", year: "2007", type: "Action" },
+  { title: "PARUTHIVEERAN", hero: "Karthi", year: "2007", type: "Drama" },
+  { title: "VEL", hero: "Suriya", year: "2007", type: "Action" },
+  { title: "VETTAIYADU VILAYADU", hero: "Kamal Haasan", year: "2006", type: "Police Procedural" },
+  { title: "VARALARU", hero: "Ajith Kumar", year: "2006", type: "Action Drama" },
+  { title: "THIRUVILEYADAL ARAMBAM", hero: "Dhanush", year: "2006", type: "Comedy" },
+  { title: "GHANINI", hero: "Suriya", year: "2005", type: "Action Thriller" },
+  { title: "ANNIYAN", hero: "Chiyaan Vikram", year: "2005", type: "Psychological Thriller" },
+  { title: "CHANDRAMUKHI", hero: "Rajinikanth", year: "2005", type: "Horror Comedy" },
+  { title: "THIRUPACHI", hero: "Vijay", year: "2005", type: "Action" },
+  { title: "SACHIEN", hero: "Vijay", year: "2005", type: "Romance Comedy" },
+  { title: "GHILLI", hero: "Vijay", year: "2004", type: "Action Sports" },
+  { title: "VASOOL RAJA MBBS", hero: "Kamal Haasan", year: "2004", type: "Comedy" },
+  { title: "KADHAL", hero: "Bharath", year: "2004", type: "Romance Drama" },
+  { title: "AUTOGRAPH", hero: "Cheran", year: "2004", type: "Nostalgic Drama" },
+  { title: "7G RAINBOW COLONY", hero: "Ravi Krishna", year: "2004", type: "Romantic Drama" },
+  { title: "SAMY", hero: "Chiyaan Vikram", year: "2003", type: "Action" },
+  { title: "PITAMAGAN", hero: "Chiyaan Vikram", year: "2003", type: "Drama" },
+  { title: "RUN", hero: "Madhavan", year: "2002", type: "Action Romance" },
+  { title: "GEMINI", hero: "Chiyaan Vikram", year: "2002", type: "Action" },
+  { title: "PANCHATHANTHIRAM", hero: "Kamal Haasan", year: "2002", type: "Comedy" },
+  { title: "KANNATHIL MUTHAMITAL", hero: "Madhavan", year: "2002", type: "Drama" },
+  { title: "DHILL", hero: "Chiyaan Vikram", year: "2001", type: "Action" },
+  { title: "CITIZEN", hero: "Ajith Kumar", year: "2001", type: "Action Thriller" },
+  { title: "MINNALE", hero: "Madhavan", year: "2001", type: "Romance" },
+  { title: "KUSHI", hero: "Vijay", year: "2000", type: "Romance" },
+  { title: "ALAIPAYUTHEY", hero: "Madhavan", year: "2000", type: "Romance Drama" },
+  { title: "VAANATHAI POLA", hero: "Vijayakanth", year: "2000", type: "Family Drama" },
+  { title: "KANDUKONDAIN KANDUKONDAIN", hero: "Mammootty", year: "2000", type: "Romance Drama" },
+
+  // Evergreen Vintage (1970s - 1990s)
+  { title: "MUDHALVAN", hero: "Arjun", year: "1999", type: "Political Action" },
+  { title: "PADAYAPPA", hero: "Rajinikanth", year: "1999", type: "Action" },
+  { title: "VAALI", hero: "Ajith Kumar", year: "1999", type: "Thriller" },
+  { title: "SETHU", hero: "Chiyaan Vikram", year: "1999", type: "Tragedy Drama" },
+  { title: "JEANS", hero: "Prashanth", year: "1998", type: "Romance Comedy" },
+  { title: "INDIAN", hero: "Kamal Haasan", year: "1996", type: "Vigilante Action" },
+  { title: "AVVAI SHANMUGHI", hero: "Kamal Haasan", year: "1996", type: "Comedy" },
+  { title: "KADHAL KOTTAI", hero: "Ajith Kumar", year: "1996", type: "Romance" },
+  { title: "ULLATHAI ALLITHA", hero: "Karthik", year: "1996", type: "Comedy" },
+  { title: "BAASHA", hero: "Rajinikanth", year: "1995", type: "Mass Action" },
+  { title: "BOMBAY", hero: "Arvind Swamy", year: "1995", type: "Romance Drama" },
+  { title: "KADHALAN", hero: "Prabhu Deva", year: "1994", type: "Action Romance" },
+  { title: "MAHANADI", hero: "Kamal Haasan", year: "1994", type: "Emotional Drama" },
+  { title: "GENTLEMAN", hero: "Arjun", year: "1993", type: "Action Thriller" },
+  { title: "ROJA", hero: "Arvind Swamy", year: "1992", type: "Romantic Thriller" },
+  { title: "THEVAR MAGAN", hero: "Kamal Haasan", year: "1992", type: "Drama" },
+  { title: "ANNAMALAI", hero: "Rajinikanth", year: "1992", type: "Action Drama" },
+  { title: "THALAPATHI", hero: "Rajinikanth", year: "1991", type: "Action Drama" },
+  { title: "CHINNA THAMBI", hero: "Karthik", year: "1991", type: "Drama" },
+  { title: "MICHAEL MADANA KAMA RAJAN", hero: "Kamal Haasan", year: "1990", type: "Comedy" },
+  { title: "ANJALI", hero: "Master Tarun", year: "1990", type: "Family Drama" },
+  { title: "APOORVA SAGODHARARGAL", hero: "Kamal Haasan", year: "1989", type: "Action Comedy" },
+  { title: "AGNI NATCHATHIRAM", hero: "Karthik", year: "1988", type: "Drama" },
+  { title: "NAAYAKAN", hero: "Kamal Haasan", year: "1987", type: "Crime Drama" },
+  { title: "SINDHU BHAIRAVI", hero: "Sivakumar", year: "1985", type: "Musical Drama" },
+  { title: "MOONDRAM PIRAI", hero: "Kamal Haasan", year: "1982", type: "Romantic Drama" },
+  { title: "THILLU MULLU", hero: "Rajinikanth", year: "1981", type: "Comedy" },
+  { title: "NAGIN", hero: "Kamal Haasan", year: "1979", type: "Drama" },
+  { title: "AVAL APPADITHAN", hero: "Kamal Haasan", year: "1978", type: "Drama" },
+  { title: "16 VAYATHINILE", hero: "Kamal Haasan", year: "1977", type: "Drama" },
+
+  // Newly Added Popular Easy Movies (150 Additional Hit Movies)
+  { title: "SINGAM 2", hero: "Suriya", year: "2013", type: "Action" },
+  { title: "SINGAM 3", hero: "Suriya", year: "2017", type: "Action" },
+  { title: "VELAIALLA PATTADHARI 2", hero: "Dhanush", year: "2017", type: "Comedy Action" },
+  { title: "SURA", hero: "Vijay", year: "2010", type: "Action" },
+  { title: "VETTAIKARAN", hero: "Vijay", year: "2009", type: "Action" },
+  { title: "VILLU", hero: "Vijay", year: "2009", type: "Action Comedy" },
+  { title: "KURUVI", hero: "Vijay", year: "2008", type: "Action" },
+  { title: "AZHAGIYA TAMIL MAGAN", hero: "Vijay", year: "2007", type: "Action Thriller" },
+  { title: "SIVAKASI", hero: "Vijay", year: "2005", type: "Action" },
+  { title: "MADUREY", hero: "Vijay", year: "2004", type: "Action" },
+  { title: "THIRUMALAI", hero: "Vijay", year: "2003", type: "Action" },
+  { title: "YOUTH", hero: "Vijay", year: "2002", type: "Romantic Comedy" },
+  { title: "FRIENDS TAMIL", hero: "Vijay", year: "2001", type: "Comedy Drama" },
+  { title: "PRIYAMANAVALE", hero: "Vijay", year: "2000", type: "Romantic Drama" },
+  { title: "THULLADHA MANAMUM THULLUM", hero: "Vijay", year: "1999", type: "Romance Drama" },
+  { title: "KADHALUKKU MARIYADHAI", hero: "Vijay", year: "1997", type: "Romance" },
+  { title: "PANCHALANKURICHI", hero: "Prabhu", year: "1996", type: "Action Drama" },
+  { title: "NINAIKENDE VANDHEN", hero: "Vijay", year: "1998", type: "Romance" },
+  { title: "AASAI", hero: "Ajith Kumar", year: "1995", type: "Romantic Thriller" },
+  { title: "KALLOORI VAASAL", hero: "Ajith Kumar", year: "1996", type: "Romance" },
+  { title: "AVAL VARUVALA", hero: "Ajith Kumar", year: "1998", type: "Romance Comedy" },
+  { title: "UNNIDATHIL ENNAI KODUTHEN", hero: "Karthik", year: "1998", type: "Drama" },
+  { title: "AMARKALAM", hero: "Ajith Kumar", year: "1999", type: "Action Romance" },
+  { title: "NEEYE NEEYE", hero: "Madhavan", year: "2002", type: "Romance" },
+  { title: "RED", hero: "Ajith Kumar", year: "2002", type: "Action" },
+  { title: "VILLAIN", hero: "Ajith Kumar", year: "2002", type: "Action Drama" },
+  { title: "ATTHASAM", hero: "Ajith Kumar", year: "2004", type: "Action Comedy" },
+  { title: "JI", hero: "Ajith Kumar", year: "2005", type: "Political Action" },
+  { title: "AAGAN", hero: "Ajith Kumar", year: "2009", type: "Action Thriller" },
+  { title: "ASAL", hero: "Ajith Kumar", year: "2010", type: "Action Thriller" },
+  { title: "ARRAMBAM", hero: "Ajith Kumar", year: "2013", type: "Action Thriller" },
+  { title: "VEERAM", hero: "Ajith Kumar", year: "2014", type: "Action Drama" },
+  { title: "NERKONDA PAARVAI", hero: "Ajith Kumar", year: "2019", type: "Legal Drama" },
+  { title: "KAUKKAI KAKKAI", hero: "Suriya", year: "2003", type: "Police Action" },
+  { title: "PITAMAGAN", hero: "Suriya", year: "2003", type: "Drama" },
+  { title: "PERAZHAGAN", hero: "Suriya", year: "2004", type: "Comedy Drama" },
+  { title: "AARU", hero: "Suriya", year: "2005", type: "Action Drama" },
+  { title: "SILUNNU ORU KAADHAL", hero: "Suriya", year: "2006", type: "Romance" },
+  { title: "VAARANAM AAYIRAM", hero: "Suriya", year: "2008", type: "Biographical Drama" },
+  { title: "AADHAVAN", hero: "Suriya", year: "2009", type: "Action Comedy" },
+  { title: "7AUM AIVU", hero: "Suriya", year: "2011", type: "Sci-Fi Action" },
+  { title: "MAATTRRAAN", hero: "Suriya", year: "2012", type: "Sci-Fi Thriller" },
+  { title: "ANJAAN", hero: "Suriya", year: "2014", type: "Action Drama" },
+  { title: "MASSU ENGIRA MASILAMANI", hero: "Suriya", year: "2015", type: "Horror Comedy" },
+  { title: "THAANAA SERNDHA KOOTTAM", hero: "Suriya", year: "2018", type: "Heist Comedy" },
+  { title: "NGK", hero: "Suriya", year: "2019", type: "Political Drama" },
+  { title: "KAAPPAAN", hero: "Suriya", year: "2019", type: "Action Thriller" },
+  { title: "ET", hero: "Suriya", year: "2022", type: "Action Drama" },
+  { title: "POLLADHAVAN", hero: "Dhanush", year: "2007", type: "Action Crime" },
+  { title: "PADIKATHAVAN", hero: "Dhanush", year: "2009", type: "Action Comedy" },
+  { title: "KUTTY", hero: "Dhanush", year: "2010", type: "Romantic Comedy" },
+  { title: "UTTHAMA PUTHIRAN", hero: "Dhanush", year: "2010", type: "Comedy" },
+  { title: "MAYAKKAM ENNA", hero: "Dhanush", year: "2011", type: "Drama" },
+  { title: "MARI", hero: "Dhanush", year: "2015", type: "Action Comedy" },
+  { title: "MARI 2", hero: "Dhanush", year: "2018", type: "Action Comedy" },
+  { title: "KODI", hero: "Dhanush", year: "2016", type: "Political Thriller" },
+  { title: "ENAI NOKKI PAAYUM THOTA", hero: "Dhanush", year: "2019", type: "Action Romance" },
+  { title: "PATTAS", hero: "Dhanush", year: "2020", type: "Martial Arts Action" },
+  { title: "JAGAME THANDHIRAM", hero: "Dhanush", year: "2021", type: "Gangster Action" },
+  { title: "VAATHI", hero: "Dhanush", year: "2023", type: "Period Drama" },
+  { title: "MULLUM MALARUM", hero: "Rajinikanth", year: "1978", type: "Drama" },
+  { title: "PRAPANCHAM", hero: "Rajinikanth", year: "1980", type: "Action" },
+  { title: "BILLA OLD", hero: "Rajinikanth", year: "1980", type: "Action Thriller" },
+  { title: "MURATTU KARAL", hero: "Rajinikanth", year: "1980", type: "Action" },
+  { title: "MOOND RU MUGAM", hero: "Rajinikanth", year: "1982", type: "Action Thriller" },
+  { title: "PAYANANGAL MUDIVATHILLAI", hero: "Mohan", year: "1982", type: "Romance Drama" },
+  { title: "NALLAVANUKKU NALLAVAN", hero: "Rajinikanth", year: "1984", type: "Action Drama" },
+  { title: "MR BHARAT", hero: "Rajinikanth", year: "1986", type: "Action Drama" },
+  { title: "VELAIKARAN", hero: "Rajinikanth", year: "1987", type: "Action Drama" },
+  { title: "MANITHAN", hero: "Rajinikanth", year: "1987", type: "Action" },
+  { title: "RAJA CHINNA ROJA", hero: "Rajinikanth", year: "1989", type: "Live-Action Animation" },
+  { title: "AATUKKARA ALAMELU", hero: "Sripriya", year: "1977", type: "Drama" },
+  { title: "PANAKKARAN", hero: "Rajinikanth", year: "1990", type: "Action" },
+  { title: "ATIHSAYA PIRAVI", hero: "Rajinikanth", year: "1990", type: "Fantasy Comedy" },
+  { title: "DHARMA DURAI", hero: "Rajinikanth", year: "1991", type: "Action Drama" },
+  { title: "EJAMAN", hero: "Rajinikanth", year: "1993", type: "Drama" },
+  { title: "VEERA", hero: "Rajinikanth", year: "1994", type: "Action Comedy" },
+  { title: "MUTU", hero: "Rajinikanth", year: "1995", type: "Action Drama" },
+  { title: "ARUNACHALAM", hero: "Rajinikanth", year: "1997", type: "Action Drama" },
+  { title: "BABA", hero: "Rajinikanth", year: "2002", type: "Fantasy Action" },
+  { title: "KUSELAN", hero: "Rajinikanth", year: "2008", type: "Drama" },
+  { title: "LINGAA", hero: "Rajinikanth", year: "2014", type: "Action Drama" },
+  { title: "2 POINT 0", hero: "Rajinikanth", year: "2018", type: "Sci-Fi Action" },
+  { title: "DARBAR", hero: "Rajinikanth", year: "2020", type: "Police Action" },
+  { title: "LAL SALAM", hero: "Vishnu Vishal", year: "2024", type: "Sports Drama" },
+  { title: "SATHYA", hero: "Kamal Haasan", year: "1988", type: "Action Thriller" },
+  { title: "SINGARAVELAN", hero: "Kamal Haasan", year: "1992", type: "Comedy" },
+  { title: "KALAIGNAR", hero: "Kamal Haasan", year: "1993", type: "Action Drama" },
+  { title: "NAMMAVAR", hero: "Kamal Haasan", year: "1994", type: "Academic Drama" },
+  { title: "SATI LEELAVATI", hero: "Kamal Haasan", year: "1995", type: "Comedy" },
+  { title: "KADHULU KADHULU", hero: "Kamal Haasan", year: "1998", type: "Comedy" },
+  { title: "HEY RAM", hero: "Kamal Haasan", year: "2000", type: "Period Drama" },
+  { title: "TENALI", hero: "Kamal Haasan", year: "2000", type: "Comedy" },
+  { title: "ALAVANDHAN", hero: "Kamal Haasan", year: "2001", type: "Psychological Thriller" },
+  { title: "ANBE SIVAM", hero: "Kamal Haasan", year: "2003", type: "Drama" },
+  { title: "VIRUMANDI", hero: "Kamal Haasan", year: "2004", type: "Action Drama" },
+  { title: "MUMBAI XPRESS", hero: "Kamal Haasan", year: "2005", type: "Comedy" },
+  { title: "MANMADHAN AMBU", hero: "Kamal Haasan", year: "2010", type: "Romantic Comedy" },
+  { title: "VISHWAROOPAM", hero: "Kamal Haasan", year: "2013", type: "Spy Action" },
+  { title: "UTTAMA VILLAIN", hero: "Kamal Haasan", year: "2015", type: "Drama" },
+  { title: "PAPNASAM", hero: "Kamal Haasan", year: "2015", type: "Crime Mystery" },
+  { title: "THOONGAVAN", hero: "Kamal Haasan", year: "2015", type: "Action Thriller" },
+  { title: "VISHWAROOPAM 2", hero: "Kamal Haasan", year: "2018", type: "Spy Action" },
+  { title: "KANDA NAAL MUDHAL", hero: "Prasanna", year: "2005", type: "Romantic Comedy" },
+  { title: "BHEEMA", hero: "Chiyaan Vikram", year: "2008", type: "Action Drama" },
+  { title: "KANTHASWAMY", hero: "Chiyaan Vikram", year: "2009", type: "Superhero Action" },
+  { title: "RAAVANAN", hero: "Chiyaan Vikram", year: "2010", type: "Action Drama" },
+  { title: "DEIVA THIRUMAGAL", hero: "Chiyaan Vikram", year: "2011", type: "Emotional Drama" },
+  { title: "THAANDAVAM", hero: "Chiyaan Vikram", year: "2012", type: "Action Thriller" },
+  { title: "IRU MUGAN", hero: "Chiyaan Vikram", year: "2016", type: "Sci-Fi Action" },
+  { title: "SKETCH", hero: "Chiyaan Vikram", year: "2018", type: "Action" },
+  { title: "KADARAM KONDAN", hero: "Chiyaan Vikram", year: "2019", type: "Action Thriller" },
+  { title: "MAHAAN", hero: "Chiyaan Vikram", year: "2022", type: "Action Drama" },
+  { title: "COBRA", hero: "Chiyaan Vikram", year: "2022", type: "Action Thriller" },
+  { title: "TAMIZH PADAM", hero: "Shiva", year: "2010", type: "Parody Comedy" },
+  { title: "TAMIZH PADAM 2", hero: "Shiva", year: "2018", type: "Parody Comedy" },
+  { title: "KALAKALAPPU", hero: "Vimal", year: "2012", type: "Comedy" },
+  { title: "KALAKALAPPU 2", hero: "Jiiva", year: "2018", type: "Comedy" },
+  { title: "BOSS ENGIRA BHASKARAN", hero: "Arya", year: "2010", type: "Comedy" },
+  { title: "OORAM PO", hero: "Arya", year: "2007", type: "Comedy Action" },
+  { title: "MADRASAPATTINAM", hero: "Arya", year: "2010", type: "Period Romance" },
+  { title: "VEDALAM", hero: "Ajith Kumar", year: "2015", type: "Action" },
+  { title: "TEDDY", hero: "Arya", year: "2021", type: "Fantasy Action" },
+  { title: "ENAM", hero: "Karan", year: "2014", type: "Drama" },
+  { title: "RUNNER", hero: "Vishal", year: "2025", type: "Action" },
+  { title: "SANDAKOZHI", hero: "Vishal", year: "2005", type: "Action Drama" },
+  { title: "THIMIRU", hero: "Vishal", year: "2006", type: "Action" },
+  { title: "THAMIRABHARANI", hero: "Vishal", year: "2007", type: "Action Drama" },
+  { title: "SATHYAM", hero: "Vishal", year: "2008", type: "Action" },
+  { title: "AVAN IVAN", hero: "Vishal", year: "2011", type: "Comedy Drama" },
+  { title: "PANDIYA NAADU", hero: "Vishal", year: "2013", type: "Action Thriller" },
+  { title: "POOJAI", hero: "Vishal", year: "2014", type: "Action" },
+  { title: "THUPPARIVAALAN", hero: "Vishal", year: "2017", type: "Detective Thriller" },
+  { title: "IRUMBU THIRAI", hero: "Vishal", year: "2018", type: "Cyber Crime Thriller" },
+  { title: "NEERPARAVAI", hero: "Vishnu Vishal", year: "2012", type: "Drama" },
+  { title: "IND RU NETRU NAALAI", hero: "Vishnu Vishal", year: "2015", type: "Sci-Fi Comedy" },
+  { title: "SILUKKUVARUPATTI SINGAM", hero: "Vishnu Vishal", year: "2018", type: "Comedy" },
+  { title: "FIR TAMIL", hero: "Vishnu Vishal", year: "2022", type: "Action Thriller" },
+  { title: "GATTA KUSTHI", hero: "Vishnu Vishal", year: "2022", type: "Sports Comedy" },
+  { title: "DESINGU RAJA", hero: "Vimal", year: "2013", type: "Comedy" },
+  { title: "MANAM KOTTI CHITTAAVU", hero: "Sivakarthikeyan", year: "2012", type: "Comedy" },
+  { title: "KEDI BILLA KILLADI RANGA", hero: "Sivakarthikeyan", year: "2013", type: "Comedy" },
+  { title: "KAAKI SATTAI", hero: "Sivakarthikeyan", year: "2015", type: "Action Comedy" },
+  { title: "RAGINI IPS", hero: "Sivakarthikeyan", year: "2014", type: "Action" },
+  { title: "HERO TAMIL", hero: "Sivakarthikeyan", year: "2019", type: "Superhero Action" },
+  { title: "PRINCE TAMIL", hero: "Sivakarthikeyan", year: "2022", type: "Romantic Comedy" }
+],
+TOLLYWOOD: [
+  // Blockbusters & Global Phenomenons (2015 - 2026)
+  { title: "RRR", hero: "Ram Charan", year: "2022", type: "Epic Action" },
+  { title: "BAAHUBALI THE BEGINNING", hero: "Prabhas", year: "2015", type: "Epic Fantasy" },
+  { title: "BAAHUBALI 2 THE CONCLUSION", hero: "Prabhas", year: "2017", type: "Epic Action" },
+  { title: "PUSHPA THE RISE", hero: "Allu Arjun", year: "2021", type: "Action Drama" },
+  { title: "PUSHPA 2 THE RULE", hero: "Allu Arjun", year: "2024", type: "Action Drama" },
+  { title: "KALKI 2898 AD", hero: "Prabhas", year: "2024", type: "Sci-Fi Epic" },
+  { title: "SALAAR CEASEFIRE", hero: "Prabhas", year: "2023", type: "Action Thriller" },
+  { title: "DEVARA PART 1", hero: "Jr NTR", year: "2024", type: "Action Drama" },
+  { title: "HANUMAN", hero: "Teja Sajja", year: "2024", type: "Superhero" },
+  { title: "ALA VAIKUNTHAPURRAMULOO", hero: "Allu Arjun", year: "2020", type: "Family Comedy" },
+  { title: "SARILERU NEEKEVVARU", hero: "Mahesh Babu", year: "2020", type: "Action Comedy" },
+  { title: "MAHARSHI", hero: "Mahesh Babu", year: "2019", type: "Drama" },
+  { title: "RANGASTHALAM", hero: "Ram Charan", year: "2018", type: "Period Action Drama" },
+  { title: "MAHANATI", hero: "Keerthy Suresh", year: "2018", type: "Biographical Drama" },
+  { title: "ARJUN REDDY", hero: "Vijay Deverakonda", year: "2017", type: "Romantic Drama" },
+  { title: "GEETHA GOVINDAM", hero: "Vijay Deverakonda", year: "2018", type: "Romance Comedy" },
+  { title: "SAAHO", hero: "Prabhas", year: "2019", type: "Action Thriller" },
+  { title: "KHAIDI NO 150", hero: "Chiranjeevi", year: "2017", type: "Action" },
+  { title: "SARKARU VAARI PAATA", hero: "Mahesh Babu", year: "2022", type: "Action Comedy" },
+  { title: "BHEEMLA NAYAK", hero: "Pawan Kalyan", year: "2022", type: "Action Drama" },
+  { title: "AKHANDA", hero: "Nandamuri Balakrishna", year: "2021", type: "Action Drama" },
+  { title: "VAKEEL SAAB", hero: "Pawan Kalyan", year: "2021", type: "Legal Drama" },
+  { title: "GUNTUR KAARAM", hero: "Mahesh Babu", year: "2024", type: "Action Drama" },
+  { title: "TILLU SQUARE", hero: "Siddu Jonnalagadda", year: "2024", type: "Romantic Comedy" },
+  { title: "WALTAIR VEERAYYA", hero: "Chiranjeevi", year: "2023", type: "Action Comedy" },
+  { title: "VEERA SIMHA REDDY", hero: "Nandamuri Balakrishna", year: "2023", type: "Action Drama" },
+  { title: "BHAGAVANTH KESARI", hero: "Nandamuri Balakrishna", year: "2023", type: "Action Drama" },
+  { title: "DASARA", hero: "Nani", year: "2023", type: "Action Drama" },
+  { title: "HI NANNA", hero: "Nani", year: "2023", type: "Emotional Drama" },
+  { title: "JERSEY", hero: "Nani", year: "2019", type: "Sports Drama" },
+  { title: "JATHI RATNALU", hero: "Naveen Polishetty", year: "2021", type: "Comedy" },
+  { title: "AGENT SAI SRINIVASA ATHREYA", hero: "Naveen Polishetty", year: "2019", type: "Detective Comedy" },
+  { title: "MAD", hero: "Narne Nithin", year: "2023", type: "Campus Comedy" },
+  { title: "GAAMI", hero: "Vishwak Sen", year: "2024", type: "Adventure Thriller" },
+  { title: "GAME CHANGER", hero: "Ram Charan", year: "2025", type: "Political Action" },
+  { title: "DAAKU MAHARAJ", hero: "Nandamuri Balakrishna", year: "2025", type: "Action Drama" },
+
+  // Golden Hits (2000 - 2014)
+  { title: "MAGADHEERA", hero: "Ram Charan", year: "2009", type: "Historical Fantasy" },
+  { title: "ATTARINTIKI DAREDI", hero: "Pawan Kalyan", year: "2013", type: "Family Comedy" },
+  { title: "GABBAR SINGH", hero: "Pawan Kalyan", year: "2012", type: "Action Comedy" },
+  { title: "DHOOKUDU", hero: "Mahesh Babu", year: "2011", type: "Action Comedy" },
+  { title: "POKIRI", hero: "Mahesh Babu", year: "2006", type: "Action Thriller" },
+  { title: "ATHADU", hero: "Mahesh Babu", year: "2005", type: "Action Thriller" },
+  { title: "OKKADU", hero: "Mahesh Babu", year: "2003", type: "Action" },
+  { title: "ARYA", hero: "Allu Arjun", year: "2004", type: "Romance" },
+  { title: "ARYA 2", hero: "Allu Arjun", year: "2009", type: "Romantic Drama" },
+  { title: "JULAYI", hero: "Allu Arjun", year: "2012", type: "Action Comedy" },
+  { title: "RACE GURRAM", hero: "Allu Arjun", year: "2014", type: "Action Comedy" },
+  { title: "MIRCHI", hero: "Prabhas", year: "2013", type: "Action Drama" },
+  { title: "DARLING", hero: "Prabhas", year: "2010", type: "Romance Comedy" },
+  { title: "MR PERFECT", hero: "Prabhas", year: "2011", type: "Romantic Drama" },
+  { title: "BILLA", hero: "Prabhas", year: "2009", type: "Action Thriller" },
+  { title: "CHATRAPATHI", hero: "Prabhas", year: "2005", type: "Action Drama" },
+  { title: "SIMHADRI", hero: "Jr NTR", year: "2003", type: "Action" },
+  { title: "YAMADONGA", hero: "Jr NTR", year: "2007", type: "Fantasy Action" },
+  { title: "BRINDAVANAM", hero: "Jr NTR", year: "2010", type: "Family Comedy" },
+  { title: "SRIMANTHUDU", hero: "Mahesh Babu", year: "2015", type: "Drama" },
+  { title: "1 NENOKKADINE", hero: "Mahesh Babu", year: "2014", type: "Psychological Thriller" },
+  { title: "SEETHAMMA VAKITLO SIRIMALLE CHETTU", hero: "Venkatesh", year: "2013", type: "Family Drama" },
+  { title: "MANMADHUDU", hero: "Nagarjuna Akkineni", year: "2002", type: "Romance Comedy" },
+  { title: "NUVVU NAAKU NACHCHAV", hero: "Venkatesh", year: "2001", type: "Comedy Drama" },
+  { title: "BOMMARILLU", hero: "Siddharth", year: "2006", type: "Romance Family" },
+  { title: "HAPPY DAYS", hero: "Varun Sandesh", year: "2007", type: "Coming-of-Age" },
+  { title: "KICK", hero: "Ravi Teja", year: "2009", type: "Comedy Action" },
+  { title: "VENKY", hero: "Ravi Teja", year: "2004", type: "Comedy Action" },
+  { title: "VIKRAMARKUDU", hero: "Ravi Teja", year: "2006", type: "Action Drama" },
+  { title: "MANAM", hero: "Akkineni Nageswara Rao", year: "2014", type: "Fantasy Drama" },
+  { title: "YE MAAYA CHESAVE", hero: "Naga Chaitanya", year: "2010", type: "Romance" },
+  { title: "LEADER", hero: "Rana Daggubati", year: "2010", type: "Political Drama" },
+  { title: "NUVVOSTANANTE NENODDANTANA", hero: "Siddharth", year: "2005", type: "Romance Drama" },
+
+  // Classics & Vintage Legends (1950s - 1990s)
+  { title: "MAYABAZAR", hero: "NT Rama Rao", year: "1957", type: "Epic Fantasy" },
+  { title: "GUNDAMMA KATHA", hero: "NT Rama Rao", year: "1962", type: "Classic Drama" },
+  { title: "SANKARABHARANAM", hero: "JV Somayajulu", year: "1979", type: "Musical Drama" },
+  { title: "SAGARA SANGAMAM", hero: "Kamal Haasan", year: "1983", type: "Musical Drama" },
+  { title: "SHIVA", hero: "Nagarjuna Akkineni", year: "1989", type: "Action Drama" },
+  { title: "GEETHANJALI", hero: "Nagarjuna Akkineni", year: "1989", type: "Romance Drama" },
+  { title: "ADITYA 369", hero: "Nandamuri Balakrishna", year: "1991", type: "Sci-Fi Adventure" },
+  { title: "GANG LEADER", hero: "Chiranjeevi", year: "1991", type: "Action Drama" },
+  { title: "GHARANA MUGUDU", hero: "Chiranjeevi", year: "1992", type: "Action Comedy" },
+  { title: "JAGADEKA VEERUDU ATHILOKA SUNDARI", hero: "Chiranjeevi", year: "1990", type: "Fantasy Drama" },
+  { title: "INDRA", hero: "Chiranjeevi", year: "2002", type: "Action Drama" },
+  { title: "SAMARASIMHA REDDY", hero: "Nandamuri Balakrishna", year: "1999", type: "Action Drama" },
+  { title: "NARSIMHA NAIDU", hero: "Nandamuri Balakrishna", year: "2001", type: "Action Drama" },
+  { title: "THOLI PREMA", hero: "Pawan Kalyan", year: "1998", type: "Romance" },
+  { title: "KUSHI", hero: "Pawan Kalyan", year: "2001", type: "Romantic Comedy" },
+
+  // Newly Added Popular Easy Movies (150 Additional Hit Movies)
+  { title: "SARRAINODU", hero: "Allu Arjun", year: "2016", type: "Action" },
+  { title: "DJ DUVVADA JAGANNADHAM", hero: "Allu Arjun", year: "2017", type: "Action Comedy" },
+  { title: "DESAMUDURU", hero: "Allu Arjun", year: "2007", type: "Action Romance" },
+  { title: "PARUGU", hero: "Allu Arjun", year: "2008", type: "Romantic Drama" },
+  { title: "BUNNY", hero: "Allu Arjun", year: "2005", type: "Action Comedy" },
+  { title: "GANGOTRI", hero: "Allu Arjun", year: "2003", type: "Romance Drama" },
+  { title: "SON OF SATYAMURTHY", hero: "Allu Arjun", year: "2015", type: "Family Drama" },
+  { title: "NAA PERU SURYA", hero: "Allu Arjun", year: "2018", type: "Action Drama" },
+  { title: "DHANUNJAYA", hero: "Allu Arjun", year: "2025", type: "Action" },
+  { title: "GOVINDUDEU ANDARIVADELE", hero: "Ram Charan", year: "2014", type: "Family Drama" },
+  { title: "YEVADU", hero: "Ram Charan", year: "2014", type: "Action Thriller" },
+  { title: "NAAYAK", hero: "Ram Charan", year: "2013", type: "Action Comedy" },
+  { title: "RAACHA", hero: "Ram Charan", year: "2012", type: "Action Drama" },
+  { title: "ORANGE", hero: "Ram Charan", year: "2010", type: "Romantic Drama" },
+  { title: "CHIRUTHA", hero: "Ram Charan", year: "2007", type: "Action Romance" },
+  { title: "DHRUVA", hero: "Ram Charan", year: "2016", type: "Action Thriller" },
+  { title: "VINAYA VIDHEYA RAMA", hero: "Ram Charan", year: "2019", type: "Action Drama" },
+  { title: "JANATHA GARAGE", hero: "Jr NTR", year: "2016", type: "Action Drama" },
+  { title: "NANNAKU PREMATHO", hero: "Jr NTR", year: "2016", type: "Action Thriller" },
+  { title: "TEMPER", hero: "Jr NTR", year: "2015", type: "Action Drama" },
+  { title: "BAADSHAH", hero: "Jr NTR", year: "2013", type: "Action Comedy" },
+  { title: "DHAMMU", hero: "Jr NTR", year: "2012", type: "Action" },
+  { title: "OOSARAVELLI", hero: "Jr NTR", year: "2011", type: "Action Thriller" },
+  { title: "RAKHI", hero: "Jr NTR", year: "2006", type: "Action Drama" },
+  { title: "ASHOKA", hero: "Jr NTR", year: "2006", type: "Action" },
+  { title: "AADI", hero: "Jr NTR", year: "2002", type: "Action" },
+  { title: "STUDENT NO 1", hero: "Jr NTR", year: "2001", type: "Action Drama" },
+  { title: "ARVINDA SAMETHA VEERA RAGHAVA", hero: "Jr NTR", year: "2018", type: "Action Drama" },
+  { title: "JAI LAVA KUSA", hero: "Jr NTR", year: "2017", type: "Action Drama" },
+  { title: "VARUDHU", hero: "Allu Arjun", year: "2010", type: "Action Drama" },
+  { title: "KHALEJA", hero: "Mahesh Babu", year: "2010", type: "Action Comedy" },
+  { title: "AAGADU", hero: "Mahesh Babu", year: "2014", type: "Action Comedy" },
+  { title: "BRAHMOTSAVAM", hero: "Mahesh Babu", year: "2016", type: "Family Drama" },
+  { title: "SPYDER", hero: "Mahesh Babu", year: "2017", type: "Action Thriller" },
+  { title: "BHARAT ANE NENU", hero: "Mahesh Babu", year: "2018", type: "Political Drama" },
+  { title: "ARJUN", hero: "Mahesh Babu", year: "2004", type: "Action Drama" },
+  { title: "SAINIKUDU", hero: "Mahesh Babu", year: "2006", type: "Action" },
+  { title: "MURARI", hero: "Mahesh Babu", year: "2001", type: "Supernatural Drama" },
+  { title: "NANI", hero: "Mahesh Babu", year: "2004", type: "Sci-Fi Comedy" },
+  { title: "BOB BILI RAJA", hero: "Venkatesh", year: "1990", type: "Action Romance" },
+  { title: "KSHANA KSHANAM", hero: "Venkatesh", year: "1991", type: "Road Thriller" },
+  { title: "CHINNA THAMBI TELUGU", hero: "Venkatesh", year: "1991", type: "Drama" },
+  { title: "SHATRU VU", hero: "Venkatesh", year: "1990", type: "Action" },
+  { title: "PREMA", hero: "Venkatesh", year: "1989", type: "Romantic Drama" },
+  { title: "INTRUDER", hero: "Venkatesh", year: "1989", type: "Action" },
+  { title: "DHARMA CHAKRAM", hero: "Venkatesh", year: "1996", type: "Action Drama" },
+  { title: "PREMINCHUKUNDAM RAA", hero: "Venkatesh", year: "1997", type: "Romance Action" },
+  { title: "SURYA VAMSHAM", hero: "Venkatesh", year: "1998", type: "Family Drama" },
+  { title: "RAJA", hero: "Venkatesh", year: "1999", type: "Romantic Drama" },
+  { title: "KALISUNDAM RAA", hero: "Venkatesh", year: "2000", type: "Family Drama" },
+  { title: "JAYAM MANADE RAA", hero: "Venkatesh", year: "2000", type: "Action Drama" },
+  { title: "NUVVU ENNAALU", hero: "Venkatesh", year: "2002", type: "Drama" },
+  { title: "MALLISWARI", hero: "Venkatesh", year: "2004", type: "Romantic Comedy" },
+  { title: "SANKRANTHI", hero: "Venkatesh", year: "2005", type: "Family Drama" },
+  { title: "ADAVARI MATALAKU ARTHALE VERULE", hero: "Venkatesh", year: "2007", type: "Romantic Drama" },
+  { title: "TULASI", hero: "Venkatesh", year: "2007", type: "Action Drama" },
+  { title: "NAMO VENKATESA", hero: "Venkatesh", year: "2010", type: "Comedy" },
+  { title: "BODYGUARD TELUGU", hero: "Venkatesh", year: "2012", type: "Action Comedy" },
+  { title: "MASALA", hero: "Venkatesh", year: "2013", type: "Comedy" },
+  { title: "DRUSH YAM", hero: "Venkatesh", year: "2014", type: "Crime Thriller" },
+  { title: "GOPALA GOPALA", hero: "Venkatesh", year: "2015", type: "Satirical Drama" },
+  { title: "BABU BANGARAM", hero: "Venkatesh", year: "2016", type: "Action Comedy" },
+  { title: "GURU", hero: "Venkatesh", year: "2017", type: "Sports Drama" },
+  { title: "F2 FUN AND FRUSTRATION", hero: "Venkatesh", year: "2019", type: "Comedy" },
+  { title: "VENKY MAMA", hero: "Venkatesh", year: "2019", type: "Action Comedy" },
+  { title: "NARAPPA", hero: "Venkatesh", year: "2021", type: "Action Drama" },
+  { title: "DRUSH YAM 2", hero: "Venkatesh", year: "2021", type: "Crime Thriller" },
+  { title: "F3 FUN AND FRUSTRATION", hero: "Venkatesh", year: "2022", type: "Comedy" },
+  { title: "SAINDHAV", hero: "Venkatesh", year: "2024", type: "Action Thriller" },
+  { title: "SANGAM", hero: "Nagarjuna Akkineni", year: "1988", type: "Drama" },
+  { title: "PRESIDENT GARI PELLI", hero: "Nagarjuna Akkineni", year: "1992", type: "Romance Comedy" },
+  { title: "HELLO BROTHER", hero: "Nagarjuna Akkineni", year: "1994", type: "Comedy Action" },
+  { title: "NINNE PELLADATHA", hero: "Nagarjuna Akkineni", year: "1996", type: "Romantic Drama" },
+  { title: "ANMAY YA", hero: "Nagarjuna Akkineni", year: "1997", type: "Devotional Drama" },
+  { title: "AZAD", hero: "Nagarjuna Akkineni", year: "2000", type: "Action" },
+  { title: "SANTOSHAM", hero: "Nagarjuna Akkineni", year: "2002", type: "Romance Drama" },
+  { title: "MASS", hero: "Nagarjuna Akkineni", year: "2004", type: "Action Drama" },
+  { title: "SUPER", hero: "Nagarjuna Akkineni", year: "2005", type: "Heist Action" },
+  { title: "SRI RAMADASU", hero: "Nagarjuna Akkineni", year: "2006", type: "Devotional" },
+  { title: "DON TELUGU", hero: "Nagarjuna Akkineni", year: "2007", type: "Action" },
+  { title: "KING", hero: "Nagarjuna Akkineni", year: "2008", type: "Action Comedy" },
+  { title: "RAGADA", hero: "Nagarjuna Akkineni", year: "2010", type: "Action" },
+  { title: "GREEKUVEERUDU", hero: "Nagarjuna Akkineni", year: "2013", type: "Romantic Comedy" },
+  { title: "SOGGADE CHINNI NAYANA", hero: "Nagarjuna Akkineni", year: "2016", type: "Supernatural Comedy" },
+  { title: "OOPA RI", hero: "Nagarjuna Akkineni", year: "2016", type: "Comedy Drama" },
+  { title: "BANGARRAJU", hero: "Nagarjuna Akkineni", year: "2022", type: "Supernatural Comedy" },
+  { title: "NAA SAAMI RANGA", hero: "Nagarjuna Akkineni", year: "2024", type: "Period Action" },
+  { title: "SIMHA", hero: "Nandamuri Balakrishna", year: "2010", type: "Action Drama" },
+  { title: "LEGEND", hero: "Nandamuri Balakrishna", year: "2014", type: "Action Drama" },
+  { title: "GAUTAMIPUTRA SATAKARNI", hero: "Nandamuri Balakrishna", year: "2017", type: "Historical Epic" },
+  { title: "PAISA VASOOL", hero: "Nandamuri Balakrishna", year: "2017", type: "Action Comedy" },
+  { title: "JAI SIMHA", hero: "Nandamuri Balakrishna", year: "2018", type: "Action Drama" },
+  { title: "RULER", hero: "Nandamuri Balakrishna", year: "2019", type: "Action" },
+  { title: "AKHANDA 2", hero: "Nandamuri Balakrishna", year: "2025", type: "Action Drama" },
+  { title: "JALSA", hero: "Pawan Kalyan", year: "2008", type: "Action Comedy" },
+  { title: "PANFAA", hero: "Pawan Kalyan", year: "2011", type: "Action Thriller" },
+  { title: "GOPALA GOPALA PK", hero: "Pawan Kalyan", year: "2015", type: "Satirical Drama" },
+  { title: "KATAMARAYUDU", hero: "Pawan Kalyan", year: "2017", type: "Action Drama" },
+  { title: "AGNYATHAVATHI", hero: "Pawan Kalyan", year: "2018", type: "Action Drama" },
+  { title: "BRO", hero: "Pawan Kalyan", year: "2023", type: "Fantasy Comedy" },
+  { title: "OG", hero: "Pawan Kalyan", year: "2025", type: "Gangster Action" },
+  { title: "DON SEENU", hero: "Ravi Teja", year: "2010", type: "Action Comedy" },
+  { title: "BALUPU", hero: "Ravi Teja", year: "2013", type: "Action Comedy" },
+  { title: "POWER", hero: "Ravi Teja", year: "2014", type: "Action" },
+  { title: "RAJA THE GREAT", hero: "Ravi Teja", year: "2017", type: "Action Comedy" },
+  { title: "KRACK", hero: "Ravi Teja", year: "2021", type: "Action Drama" },
+  { title: "DHAMAKA", hero: "Ravi Teja", year: "2022", type: "Action Comedy" },
+  { title: "EAGLE", hero: "Ravi Teja", year: "2024", type: "Action Thriller" },
+  { title: "MR BACHCHAN", hero: "Ravi Teja", year: "2024", type: "Action Drama" },
+  { title: "NENINTHET", hero: "Ravi Teja", year: "2008", type: "Action Drama" },
+  { title: "KRISHNA", hero: "Ravi Teja", year: "2008", type: "Action Comedy" },
+  { title: "BHAAMAKALAPAM", hero: "Priyamani", year: "2022", type: "Comedy Thriller" },
+  { title: "BHALE BHALE MAGADIVOY", hero: "Nani", year: "2015", type: "Romantic Comedy" },
+  { title: "NENU LOCAL", hero: "Nani", year: "2017", type: "Romantic Action" },
+  { title: "NINNU KORI", hero: "Nani", year: "2017", type: "Romantic Drama" },
+  { title: "MIDDLE CLASS ABBAYI", hero: "Nani", year: "2017", type: "Action Family" },
+  { title: "SHYAM SINGHA ROY", hero: "Nani", year: "2021", type: "Period Drama" },
+  { title: "ANTE SUNDARANIKI", hero: "Nani", year: "2022", type: "Romantic Comedy" },
+  { title: "SARIPODHAA SANIVARAM", hero: "Nani", year: "2024", type: "Action Drama" },
+  { title: "HIT THE FIRST CASE", hero: "Vishwak Sen", year: "2020", type: "Crime Thriller" },
+  { title: "HIT THE SECOND CASE", hero: "Adivi Sesh", year: "2022", type: "Crime Thriller" },
+  { title: "KSHANAM", hero: "Adivi Sesh", year: "2016", type: "Mystery Thriller" },
+  { title: "GUDACHARI", hero: "Adivi Sesh", year: "2018", type: "Spy Thriller" },
+  { title: "EVARU", hero: "Adivi Sesh", year: "2019", type: "Crime Thriller" },
+  { title: "MAJOR", hero: "Adivi Sesh", year: "2022", type: "Biographical Action" },
+  { title: "GUDACHARI 2", hero: "Adivi Sesh", year: "2025", type: "Spy Action" },
+  { title: "TAX IWALA", hero: "Vijay Deverakonda", year: "2018", type: "Supernatural Comedy" },
+  { title: "DEAR COM RADE", hero: "Vijay Deverakonda", year: "2019", type: "Romantic Drama" },
+  { title: "KUSHI TELUGU", hero: "Vijay Deverakonda", year: "2023", type: "Romantic Comedy" },
+  { title: "FAMILY STAR", hero: "Vijay Deverakonda", year: "2024", type: "Family Drama" },
+  { title: "DJ TILLU", hero: "Siddu Jonnalagadda", year: "2022", type: "Romantic Comedy" },
+  { title: "BHEESHMA", hero: "Nithiin", year: "2020", type: "Romantic Comedy" },
+  { title: "A AA", hero: "Nithiin", year: "2016", type: "Romantic Family" },
+  { title: "ISHQ TELUGU", hero: "Nithiin", year: "2012", type: "Romance" },
+  { title: "GUNDE JAARI GALLANTHAYYINDE", hero: "Nithiin", year: "2013", type: "Romantic Comedy" },
+  { title: "EXTRA ORDINARY MAN", hero: "Nithiin", year: "2023", type: "Action Comedy" },
+  { title: "THANDEL", hero: "Naga Chaitanya", year: "2025", type: "Romance Drama" },
+  { title: "MAJILI", hero: "Naga Chaitanya", year: "2019", type: "Romantic Drama" },
+  { title: "LOVE STORY TELUGU", hero: "Naga Chaitanya", year: "2021", type: "Romantic Drama" },
+  { title: "THANK YOU", hero: "Naga Chaitanya", year: "2022", type: "Drama" },
+  { title: "CUSTODY", hero: "Naga Chaitanya", year: "2023", type: "Action Thriller" },
+  { title: "FIDAA", hero: "Varun Tej", year: "2017", type: "Romantic Drama" },
+  { title: "THOLI PREMA 2018", hero: "Varun Tej", year: "2018", type: "Romantic Drama" },
+  { title: "GADDALAKONDA GANESH", hero: "Varun Tej", year: "2019", type: "Action Comedy" },
+  { title: "SUPREME", hero: "Sai Dharam Tej", year: "2016", type: "Action Comedy" },
+  { title: "PRATI ROJU PANDAGE", hero: "Sai Dharam Tej", year: "2019", type: "Family Comedy" },
+  { title: "VIRUPAKSHA", hero: "Sai Dharam Tej", year: "2023", type: "Mystic Thriller" },
+  { title: "BROTHER OF BOMMALI", hero: "Allari Naresh", year: "2014", type: "Comedy" },
+  { title: "SUDIGADU", hero: "Allari Naresh", year: "2012", type: "Parody Comedy" },
+  { title: "NAANDHI", hero: "Allari Naresh", year: "2021", type: "Legal Thriller" },
+  { title: "UGR AM", hero: "Allari Naresh", year: "2023", type: "Action Thriller" },
+  { title: "SAMAAJAVARAGAMANA", hero: "Sree Vishnu", year: "2023", type: "Comedy" },
+  { title: "OM BHEEMA BUSH", hero: "Sree Vishnu", year: "2024", type: "Comedy Horror" },
+  { title: "SWAG", hero: "Sree Vishnu", year: "2024", type: "Comedy Drama" },
+  { title: "KA", hero: "Kiran Abbavaram", year: "2024", type: "Suspense Thriller" }
+],
+     BOLLYWOOD: [
+  // Blockbusters & Modern Hits (2020 - 2026)
+  { title: "JAWAN", hero: "Shah Rukh Khan", year: "2023", type: "Action Thriller" },
+  { title: "PATHAAN", hero: "Shah Rukh Khan", year: "2023", type: "Spy Action" },
+  { title: "DUNKI", hero: "Shah Rukh Khan", year: "2023", type: "Comedy Drama" },
+  { title: "ANIMAL", hero: "Ranbir Kapoor", year: "2023", type: "Action Drama" },
+  { title: "STREE 2", hero: "Rajkummar Rao", year: "2024", type: "Horror Comedy" },
+  { title: "GADAR 2", hero: "Sunny Deol", year: "2023", type: "Action Drama" },
+  { title: "TIGER 3", hero: "Salman Khan", year: "2023", type: "Spy Action" },
+  { title: "BHOOL BHULAIYAA 3", hero: "Kartik Aaryan", year: "2024", type: "Horror Comedy" },
+  { title: "BHOOL BHULAIYAA 2", hero: "Kartik Aaryan", year: "2022", type: "Horror Comedy" },
+  { title: "BRAHMASTRA", hero: "Ranbir Kapoor", year: "2022", type: "Fantasy Action" },
+  { title: "DRISHYAM 2", hero: "Ajay Devgn", year: "2022", type: "Crime Thriller" },
+  { title: "TANHAJI", hero: "Ajay Devgn", year: "2020", type: "Period Action" },
+  { title: "SOORYAVANSHI", hero: "Akshay Kumar", year: "2021", type: "Action" },
+  { title: "OMG 2", hero: "Akshay Kumar", year: "2023", type: "Satirical Drama" },
+  { title: "THE KASHMIR FILES", hero: "Anupam Kher", year: "2022", type: "Drama" },
+  { title: "SHERSHAAH", hero: "Sidharth Malhotra", year: "2021", type: "Biographical War" },
+  { title: "12TH FAIL", hero: "Vikrant Massey", year: "2023", type: "Biographical Drama" },
+  { title: "SAM BAHADUR", hero: "Vicky Kaushal", year: "2023", type: "Biographical War" },
+  { title: "CHHAAVA", hero: "Vicky Kaushal", year: "2025", type: "Period Action" },
+  { title: "FIGHTER", hero: "Hrithik Roshan", year: "2024", type: "Action" },
+  { title: "TERI BAATON MEIN AISA ULJHA JIYA", hero: "Shahid Kapoor", year: "2024", type: "Sci-Fi Romance" },
+  { title: "MAIDAAN", hero: "Ajay Devgn", year: "2024", type: "Sports Drama" },
+  { title: "BAD NEWZ", hero: "Vicky Kaushal", year: "2024", type: "Comedy" },
+  { title: "KILL", hero: "Lakshya", year: "2024", type: "Action Thriller" },
+  { title: "SHAITAN", hero: "Ajay Devgn", year: "2024", type: "Supernatural Thriller" },
+  { title: "ARTICLE 370", hero: "Yami Gautam", year: "2024", type: "Political Thriller" },
+  { title: "CREW", hero: "Tabu", year: "2024", type: "Heist Comedy" },
+  { title: "MADGAON EXPRESS", hero: "Divyenndu", year: "2024", type: "Comedy" },
+  { title: "JIGRA", hero: "Alia Bhatt", year: "2024", type: "Action Drama" },
+  { title: "BABY JOHN", hero: "Varun Dhawan", year: "2024", type: "Action" },
+  { title: "GANGUBAI KATHIAWADI", hero: "Alia Bhatt", year: "2022", type: "Biographical Crime" },
+  { title: "BHEDIYA", hero: "Varun Dhawan", year: "2022", type: "Horror Comedy" },
+  { title: "RUNWAY 34", hero: "Ajay Devgn", year: "2022", type: "Thriller" },
+
+  // Golden Superhits (2010 - 2019)
+  { title: "DANGAL", hero: "Aamir Khan", year: "2016", type: "Sports Drama" },
+  { title: "BAJRANGI BHAIJAAN", hero: "Salman Khan", year: "2015", type: "Emotional Drama" },
+  { title: "PK", hero: "Aamir Khan", year: "2014", type: "Satirical Comedy" },
+  { title: "SULTAN", hero: "Salman Khan", year: "2016", type: "Sports Drama" },
+  { title: "SANJU", hero: "Ranbir Kapoor", year: "2018", type: "Biographical Drama" },
+  { title: "TIGER ZINDA HAI", hero: "Salman Khan", year: "2017", type: "Action Thriller" },
+  { title: "PADMAAVAT", hero: "Ranveer Singh", year: "2018", type: "Period Drama" },
+  { title: "DHOOM 3", hero: "Aamir Khan", year: "2013", type: "Action Thriller" },
+  { title: "WAR", hero: "Hrithik Roshan", year: "2019", type: "Action Thriller" },
+  { title: "KABIR SINGH", hero: "Shahid Kapoor", year: "2019", type: "Romantic Drama" },
+  { title: "URI THE SURGICAL STRIKE", hero: "Vicky Kaushal", year: "2019", type: "Action War" },
+  { title: "GOOD NEWWZ", hero: "Akshay Kumar", year: "2019", type: "Comedy Drama" },
+  { title: "GULLY BOY", hero: "Ranveer Singh", year: "2019", type: "Musical Drama" },
+  { title: "BADHAI HO", hero: "Ayushmann Khurrana", year: "2018", type: "Comedy Drama" },
+  { title: "ANDHADHUN", hero: "Ayushmann Khurrana", year: "2018", type: "Black Comedy Thriller" },
+  { title: "STREE", hero: "Rajkummar Rao", year: "2018", type: "Horror Comedy" },
+  { title: "RAAZI", hero: "Alia Bhatt", year: "2018", type: "Spy Thriller" },
+  { title: "HINDI MEDIUM", hero: "Irrfan Khan", year: "2017", type: "Comedy Drama" },
+  { title: "GOLMAAL AGAIN", hero: "Ajay Devgn", year: "2017", type: "Comedy" },
+  { title: "NEERJA", hero: "Sonam Kapoor", year: "2016", type: "Biographical Thriller" },
+  { title: "AIRLIFT", hero: "Akshay Kumar", year: "2016", type: "Action Thriller" },
+  { title: "BABY", hero: "Akshay Kumar", year: "2015", type: "Action Thriller" },
+  { title: "PHANTOM", hero: "Saif Ali Khan", year: "2015", type: "Action Thriller" },
+  { title: "HAIDER", hero: "Shahid Kapoor", year: "2014", type: "Crime Drama" },
+  { title: "QUEEN", hero: "Kangana Ranaut", year: "2013", type: "Coming-of-Age Comedy" },
+  { title: "SPECIAL 26", hero: "Akshay Kumar", year: "2013", type: "Heist Thriller" },
+  { title: "BARFI", hero: "Ranbir Kapoor", year: "2012", type: "Romantic Comedy Drama" },
+  { title: "EK THA TIGER", hero: "Salman Khan", year: "2012", type: "Spy Action" },
+  { title: "AGNEEPATH", hero: "Hrithik Roshan", year: "2012", type: "Action Drama" },
+  { title: "ROCKSTAR", hero: "Ranbir Kapoor", year: "2011", type: "Musical Drama" },
+  { title: "ZINDAGI NA MILEGI DOBARA", hero: "Hrithik Roshan", year: "2011", type: "Coming-of-Age Drama" },
+  { title: "MY NAME IS KHAN", hero: "Shah Rukh Khan", year: "2010", type: "Drama" },
+  { title: "DABANGG", hero: "Salman Khan", year: "2010", type: "Action Comedy" },
+  { title: "3 IDIOTS", hero: "Aamir Khan", year: "2009", type: "Comedy Drama" },
+
+  // Classics (2000 - 2009)
+  { title: "GHAJINI", hero: "Aamir Khan", year: "2008", type: "Action Thriller" },
+  { title: "RAB NE BANA DI JODI", hero: "Shah Rukh Khan", year: "2008", type: "Romance Comedy" },
+  { title: "CHAK DE INDIA", hero: "Shah Rukh Khan", year: "2007", type: "Sports Drama" },
+  { title: "OM SHANTI OM", hero: "Shah Rukh Khan", year: "2007", type: "Melodrama" },
+  { title: "DHOOM 2", hero: "Hrithik Roshan", year: "2006", type: "Action Thriller" },
+  { title: "KRRISH", hero: "Hrithik Roshan", year: "2006", type: "Superhero" },
+  { title: "BLACK", hero: "Amitabh Bachchan", year: "2005", type: "Drama" },
+  { title: "VEER ZAARA", hero: "Shah Rukh Khan", year: "2004", type: "Romance" },
+  { title: "SWADES", hero: "Shah Rukh Khan", year: "2004", type: "Drama" },
+  { title: "MAQBOOL", hero: "Irfan Khan", year: "2004", type: "Crime Drama" },
+  { title: "KAL HO NAA HO", hero: "Shah Rukh Khan", year: "2003", type: "Romantic Drama" },
+  { title: "KOI MIL GAYA", hero: "Hrithik Roshan", year: "2003", type: "Sci-Fi" },
+  { title: "DEVDAAS", hero: "Shah Rukh Khan", year: "2002", type: "Romantic Drama" },
+  { title: "KABHI KHUSHI KABHIE GHAM", hero: "Shah Rukh Khan", year: "2001", type: "Family Drama" },
+  { title: "LAGAAN", hero: "Aamir Khan", year: "2001", type: "Period Sports Drama" },
+  { title: "GADAR EK PREM KATHA", hero: "Sunny Deol", year: "2001", type: "Action Romance" },
+  { title: "MOHABBATEIN", hero: "Shah Rukh Khan", year: "2000", type: "Romance Drama" },
+  { title: "KAHO NAA PYAAR HAI", hero: "Hrithik Roshan", year: "2000", type: "Romance Thriller" },
+  { title: "HERA PHERI", hero: "Akshay Kumar", year: "2000", type: "Comedy" },
+  { title: "NO ENTRY", hero: "Salman Khan", year: "2005", type: "Comedy" },
+  { title: "PARTNER", hero: "Salman Khan", year: "2007", type: "Comedy" },
+  { title: "WELCOME", hero: "Akshay Kumar", year: "2007", type: "Comedy" },
+  { title: "SINGH IS KINNG", hero: "Akshay Kumar", year: "2008", type: "Action Comedy" },
+  { title: "GOLMAAL FUN UNLIMITED", hero: "Ajay Devgn", year: "2006", type: "Comedy" },
+  { title: "PHIR HERA PHERI", hero: "Akshay Kumar", year: "2006", type: "Comedy" },
+  { title: "HULCHUL", hero: "Akshaye Khanna", year: "2004", type: "Comedy" },
+  { title: "HUNGAMA", hero: "Akshaye Khanna", year: "2003", type: "Comedy" },
+  { title: "MALAMAAL WEEKLY", hero: "Paresh Rawal", year: "2006", type: "Comedy" },
+  { title: "DHAMAAL", hero: "Sanjay Dutt", year: "2007", type: "Comedy" },
+  { title: "ALL THE BEST", hero: "Ajay Devgn", year: "2009", type: "Comedy" },
+
+  // Vintage Eras (1950s - 1990s)
+  { title: "TAAL", hero: "Akshaye Khanna", year: "1999", type: "Musical Romance" },
+  { title: "KUCH KUCH HOTA HAI", hero: "Shah Rukh Khan", year: "1998", type: "Romance Drama" },
+  { title: "DIL TO PAGAL HAI", hero: "Shah Rukh Khan", year: "1997", type: "Romance" },
+  { title: "BORDER", hero: "Sunny Deol", year: "1997", type: "War Drama" },
+  { title: "RAJA HINDUSTANI", hero: "Aamir Khan", year: "1996", type: "Romance" },
+  { title: "DILWALE DULHANIA LE JAYENGE", hero: "Shah Rukh Khan", year: "1995", type: "Romance" },
+  { title: "KARAN ARJUN", hero: "Salman Khan", year: "1995", type: "Action Reincarnation" },
+  { title: "RANGEELA", hero: "Aamir Khan", year: "1995", type: "Romance Comedy" },
+  { title: "HUM AAPKE HAIN KOUN", hero: "Salman Khan", year: "1994", type: "Family Romance" },
+  { title: "ANDAZ APNA APNA", hero: "Aamir Khan", year: "1994", type: "Comedy" },
+  { title: "MOHRA", hero: "Akshay Kumar", year: "1994", type: "Action" },
+  { title: "DARR", hero: "Shah Rukh Khan", year: "1993", type: "Psychological Thriller" },
+  { title: "BAAZIGAR", hero: "Shah Rukh Khan", year: "1993", type: "Crime Thriller" },
+  { title: "KHALNAYAK", hero: "Sanjay Dutt", year: "1993", type: "Action Drama" },
+  { title: "JO JEETA WOHI SIKANDAR", hero: "Aamir Khan", year: "1992", type: "Sports Drama" },
+  { title: "SAAJAN", hero: "Sanjay Dutt", year: "1991", type: "Romance" },
+  { title: "DIL", hero: "Aamir Khan", year: "1990", type: "Romance" },
+  { title: "AGNEEPATH OLD", hero: "Amitabh Bachchan", year: "1990", type: "Action Drama" },
+  { title: "MAINE PYAR KIYA", hero: "Salman Khan", year: "1989", type: "Romance" },
+  { title: "CHANDNI", hero: "Rishi Kapoor", year: "1989", type: "Romance" },
+  { title: "TEZAAB", hero: "Anil Kapoor", year: "1988", type: "Action Romance" },
+  { title: "QAYAMAT SE QAYAMAT TAK", hero: "Aamir Khan", year: "1988", type: "Romance" },
+  { title: "MR INDIA", hero: "Anil Kapoor", year: "1987", type: "Sci-Fi Superhero" },
+  { title: "SHOLAY", hero: "Dharmendra", year: "1975", type: "Action Adventure" },
+  { title: "DEEWAAR", hero: "Amitabh Bachchan", year: "1975", type: "Crime Drama" },
+  { title: "ZANJEER", hero: "Amitabh Bachchan", year: "1973", type: "Action Crime" },
+  { title: "MUGHAL E AZAM", hero: "Dilip Kumar", year: "1960", type: "Historical Drama" },
+  { title: "MOTHER INDIA", hero: "Sunil Dutt", year: "1957", type: "Epic Drama" },
+  { title: "AWAARA", hero: "Raj Kapoor", year: "1951", type: "Crime Drama" },
+  { title: "SHREE 420", hero: "Raj Kapoor", year: "1955", type: "Comedy Drama" },
+  { title: "DON OLD", hero: "Amitabh Bachchan", year: "1978", type: "Action Thriller" },
+  { title: "AMAR AKBAR ANTHONY", hero: "Amitabh Bachchan", year: "1977", type: "Action Comedy" },
+  { title: "ARADHANA", hero: "Rajesh Khanna", year: "1969", type: "Romance" },
+  { title: "SARFAROSH", hero: "Aamir Khan", year: "1999", type: "Action Thriller" },
+  { title: "SATYA", hero: "JD Chakravarthy", year: "1998", type: "Crime Drama" },
+
+  // Newly Added Popular Easy Movies (100 Additional Hit Movies)
+  { title: "CHENNAI EXPRESS", hero: "Shah Rukh Khan", year: "2013", type: "Action Comedy" },
+  { title: "HAPPY NEW YEAR", hero: "Shah Rukh Khan", year: "2014", type: "Heist Comedy" },
+  { title: "DILWALE", hero: "Shah Rukh Khan", year: "2015", type: "Action Romance" },
+  { title: "RAEES", hero: "Shah Rukh Khan", year: "2017", type: "Action Drama" },
+  { title: "DON 2", hero: "Shah Rukh Khan", year: "2011", type: "Action Thriller" },
+  { title: "DON 1", hero: "Shah Rukh Khan", year: "2006", type: "Action Thriller" },
+  { title: "RA ONE", hero: "Shah Rukh Khan", year: "2011", type: "Sci-Fi Superhero" },
+  { title: "JAB TAK HAI JAAN", hero: "Shah Rukh Khan", year: "2012", type: "Romantic Drama" },
+  { title: "DEAR ZINDAGI", hero: "Shah Rukh Khan", year: "2016", type: "Drama" },
+  { title: "MAIN HOON NA", hero: "Shah Rukh Khan", year: "2004", type: "Action Comedy" },
+  { title: "KICK HINDI", hero: "Salman Khan", year: "2014", type: "Action Comedy" },
+  { title: "READY", hero: "Salman Khan", year: "2011", type: "Action Comedy" },
+  { title: "BODYGUARD", hero: "Salman Khan", year: "2011", type: "Action Romance" },
+  { title: "DABANGG 2", hero: "Salman Khan", year: "2012", type: "Action Comedy" },
+  { title: "DABANGG 3", hero: "Salman Khan", year: "2019", type: "Action Comedy" },
+  { title: "PREM RATAN DHAN PAYO", hero: "Salman Khan", year: "2015", type: "Family Drama" },
+  { title: "BHARAT", hero: "Salman Khan", year: "2019", type: "Drama" },
+  { title: "RACE 3", hero: "Salman Khan", year: "2018", type: "Action Thriller" },
+  { title: "WANTED", hero: "Salman Khan", year: "2009", type: "Action Thriller" },
+  { title: "TERE NAAM", hero: "Salman Khan", year: "2003", type: "Romantic Tragedy" },
+  { title: "MUJHSE SHAADI KAROGI", hero: "Salman Khan", year: "2004", type: "Comedy" },
+  { title: "DHOOM", hero: "John Abraham", year: "2004", type: "Action Thriller" },
+  { title: "RACE", hero: "Saif Ali Khan", year: "2008", type: "Action Thriller" },
+  { title: "RACE 2", hero: "Saif Ali Khan", year: "2013", type: "Action Thriller" },
+  { title: "HOUSEFULL", hero: "Akshay Kumar", year: "2010", type: "Comedy" },
+  { title: "HOUSEFULL 2", hero: "Akshay Kumar", year: "2012", type: "Comedy" },
+  { title: "HOUSEFULL 3", hero: "Akshay Kumar", year: "2016", type: "Comedy" },
+  { title: "HOUSEFULL 4", hero: "Akshay Kumar", year: "2019", type: "Comedy" },
+  { title: "ROWDY RATHORE", hero: "Akshay Kumar", year: "2012", type: "Action Comedy" },
+  { title: "GABBAR IS BACK", hero: "Akshay Kumar", year: "2015", type: "Action Drama" },
+  { title: "HOLIDAY", hero: "Akshay Kumar", year: "2014", type: "Action Thriller" },
+  { title: "TOILET EK PREM KATHA", hero: "Akshay Kumar", year: "2017", type: "Social Comedy" },
+  { title: "PADMAN", hero: "Akshay Kumar", year: "2018", type: "Biographical Drama" },
+  { title: "KESARI", hero: "Akshay Kumar", year: "2019", type: "Period War" },
+  { title: "MISSION MANGAL", hero: "Akshay Kumar", year: "2019", type: "Sci-Fi Drama" },
+  { title: "JOLLY LLB 2", hero: "Akshay Kumar", year: "2017", type: "Courtroom Comedy" },
+  { title: "BANG BANG", hero: "Hrithik Roshan", year: "2014", type: "Action Romance" },
+  { title: "SUPER 30", hero: "Hrithik Roshan", year: "2019", type: "Biographical Drama" },
+  { title: "KAABIL", hero: "Hrithik Roshan", year: "2017", type: "Action Thriller" },
+  { title: "YEH JAWANI HAI DEEWANI", hero: "Ranbir Kapoor", year: "2013", type: "Romantic Comedy" },
+  { title: "AJAB PREM KI GHAZAB KAHANI", hero: "Ranbir Kapoor", year: "2009", type: "Romantic Comedy" },
+  { title: "RAAJNEETI", hero: "Ranbir Kapoor", year: "2010", type: "Political Drama" },
+  { title: "AE DIL HAI MUSHKIL", hero: "Ranbir Kapoor", year: "2016", type: "Romantic Drama" },
+  { title: "TU JHOOTHI MAIN MAKKAAR", hero: "Ranbir Kapoor", year: "2023", type: "Romantic Comedy" },
+  { title: "SIMMBA", hero: "Ranveer Singh", year: "2018", type: "Action Comedy" },
+  { title: "SINGHAM", hero: "Ajay Devgn", year: "2011", type: "Action Drama" },
+  { title: "SINGHAM RETURNS", hero: "Ajay Devgn", year: "2014", type: "Action Drama" },
+  { title: "SINGHAM AGAIN", hero: "Ajay Devgn", year: "2024", type: "Action" },
+  { title: "BAJIRAO MASTANI", hero: "Ranveer Singh", year: "2015", type: "Period Romance" },
+  { title: "RAM LEELA", hero: "Ranveer Singh", year: "2013", type: "Romantic Action" },
+  { title: "ROCKY AUR RANI KII PREM KAHAANI", hero: "Ranveer Singh", year: "2023", type: "Romantic Comedy" },
+  { title: "DHOOM 1", hero: "John Abraham", year: "2004", type: "Action" },
+  { title: "SONU KE TITU KI SWEETY", hero: "Kartik Aaryan", year: "2018", type: "Comedy Drama" },
+  { title: "PYAAR KA PUNCHNAMA", hero: "Kartik Aaryan", year: "2011", type: "Comedy" },
+  { title: "PYAAR KA PUNCHNAMA 2", hero: "Kartik Aaryan", year: "2015", type: "Comedy" },
+  { title: "LUKA CHUPPI", hero: "Kartik Aaryan", year: "2019", type: "Romantic Comedy" },
+  { title: "PATI PATNI AUR WOH", hero: "Kartik Aaryan", year: "2019", type: "Romantic Comedy" },
+  { title: "SATPAL", hero: "Sanjay Dutt", year: "2011", type: "Comedy" },
+  { title: "SATYAMEVA JAYATE", hero: "John Abraham", year: "2018", type: "Action Drama" },
+  { title: "BATLA HOUSE", hero: "John Abraham", year: "2019", type: "Action Drama" },
+  { title: "FORCE", hero: "John Abraham", year: "2011", type: "Action Thriller" },
+  { title: "MADRAS CAFE", hero: "John Abraham", year: "2013", type: "Political Thriller" },
+  { title: "DISCO DANCER", hero: "Mithun Chakraborty", year: "1982", type: "Musical Drama" },
+  { title: "STUDENT OF THE YEAR", hero: "Varun Dhawan", year: "2012", type: "Campus Romance" },
+  { title: "MAIN TERA HERO", hero: "Varun Dhawan", year: "2014", type: "Action Comedy" },
+  { title: "HUMPTY SHARMA KI DULHANIA", hero: "Varun Dhawan", year: "2014", type: "Romantic Comedy" },
+  { title: "BADLAPUR", hero: "Varun Dhawan", year: "2015", type: "Action Thriller" },
+  { title: "ABCD 2", hero: "Varun Dhawan", year: "2015", type: "Dance Drama" },
+  { title: "JUDWAA 2", hero: "Varun Dhawan", year: "2017", type: "Action Comedy" },
+  { title: "BAADRINATH KI DULHANIA", hero: "Varun Dhawan", year: "2017", type: "Romantic Comedy" },
+  { title: "BHOOTNATH", hero: "Amitabh Bachchan", year: "2008", type: "Fantasy Comedy" },
+  { title: "SARKAR", hero: "Amitabh Bachchan", year: "2005", type: "Crime Drama" },
+  { title: "BAGHBAN", hero: "Amitabh Bachchan", year: "2003", type: "Family Drama" },
+  { title: "PINK", hero: "Amitabh Bachchan", year: "2016", type: "Legal Drama" },
+  { title: "BADLA", hero: "Amitabh Bachchan", year: "2019", type: "Mystery Thriller" },
+  { title: "PIKU", hero: "Amitabh Bachchan", year: "2015", type: "Comedy Drama" },
+  { title: "DREAM GIRL", hero: "Ayushmann Khurrana", year: "2019", type: "Comedy" },
+  { title: "DREAM GIRL 2", hero: "Ayushmann Khurrana", year: "2023", type: "Comedy" },
+  { title: "BALA", hero: "Ayushmann Khurrana", year: "2019", type: "Satirical Comedy" },
+  { title: "ARTICLE 15", hero: "Ayushmann Khurrana", year: "2019", type: "Crime Drama" },
+  { title: "SHUBH MANGAL SAAVDHAN", hero: "Ayushmann Khurrana", year: "2017", type: "Romantic Comedy" },
+  { title: "BAREILLY KI BARFI", hero: "Ayushmann Khurrana", year: "2017", type: "Romantic Comedy" },
+  { title: "VICKY DONOR", hero: "Ayushmann Khurrana", year: "2012", type: "Romantic Comedy" },
+  { title: "ISHAQZAADE", hero: "Arjun Kapoor", year: "2012", type: "Romantic Action" },
+  { title: "2 STATES", hero: "Arjun Kapoor", year: "2014", type: "Romantic Comedy" },
+  { title: "GUNDAY", hero: "Arjun Kapoor", year: "2014", type: "Action" },
+  { title: "MUBARAKAN", hero: "Arjun Kapoor", year: "2017", type: "Comedy" },
+  { title: "COCKTAIL", hero: "Saif Ali Khan", year: "2012", type: "Romantic Drama" },
+  { title: "LOVE AAK KAL", hero: "Saif Ali Khan", year: "2009", type: "Romantic Drama" },
+  { title: "OMKARA", hero: "Ajay Devgn", year: "2006", type: "Crime Drama" },
+  { title: "GANGS OF WASSEIPUR 1", hero: "Manoj Bajpayee", year: "2012", type: "Crime Action" },
+  { title: "GANGS OF WASSEIPUR 2", hero: "Nawazuddin Siddiqui", year: "2012", type: "Crime Action" },
+  { title: "RAANJHANAA", hero: "Dhanush", year: "2013", type: "Romantic Drama" },
+  { title: "TANU WEDS MANU", hero: "R Madhavan", year: "2011", type: "Romantic Comedy" },
+  { title: "TANU WEDS MANU RETURNS", hero: "R Madhavan", year: "2015", type: "Romantic Comedy" },
+  { title: "CHHICHHORE", hero: "Sushant Singh Rajput", year: "2019", type: "Coming-of-Age Comedy" },
+  { title: "MS DHONI THE UNTOLD STORY", hero: "Sushant Singh Rajput", year: "2016", type: "Biographical Sports" },
+  { title: "KEDARNATH", hero: "Sushant Singh Rajput", year: "2018", type: "Romantic Drama" },
+  { title: "PK HINDI", hero: "Aamir Khan", year: "2014", type: "Comedy Drama" },
+  { title: "TAARE ZAMEEN PAR", hero: "Aamir Khan", year: "2007", type: "Family Drama" }
+],
+HOLLYWOOD: [
+  // Sci-Fi, Mind-Benders & Action Masterpieces
+  { title: "INCEPTION", hero: "Leonardo DiCaprio", year: "2010", type: "Sci-Fi Action" },
+  { title: "INTERSTELLAR", hero: "Matthew McConaughey", year: "2014", type: "Sci-Fi Space" },
+  { title: "THE MATRIX", hero: "Keanu Reeves", year: "1999", type: "Sci-Fi Action" },
+  { title: "THE DARK KNIGHT", hero: "Christian Bale", year: "2008", type: "Action Crime" },
+  { title: "THE DARK KNIGHT RISES", hero: "Christian Bale", year: "2012", type: "Action Crime" },
+  { title: "BATMAN BEGINS", hero: "Christian Bale", year: "2005", type: "Action Crime" },
+  { title: "THE BATMAN", hero: "Robert Pattinson", year: "2022", type: "Action Crime" },
+  { title: "OPPENHEIMER", hero: "Cillian Murphy", year: "2023", type: "Biographical Drama" },
+  { title: "TENET", hero: "John David Washington", year: "2020", type: "Sci-Fi Action" },
+  { title: "DUNE", hero: "Timothee Chalamet", year: "2021", type: "Sci-Fi Epic" },
+  { title: "DUNE PART TWO", hero: "Timothee Chalamet", year: "2024", type: "Sci-Fi Epic" },
+  { title: "AVATAR", hero: "Sam Worthington", year: "2009", type: "Sci-Fi Action" },
+  { title: "AVATAR THE WAY OF WATER", hero: "Sam Worthington", year: "2022", type: "Sci-Fi Action" },
+  { title: "TOP GUN MAVERICK", hero: "Tom Cruise", year: "2022", type: "Action Drama" },
+  { title: "TOP GUN", hero: "Tom Cruise", year: "1986", type: "Action Drama" },
+  { title: "GLADIATOR", hero: "Russell Crowe", year: "2000", type: "Historical Epic" },
+  { title: "GLADIATOR II", hero: "Paul Mescal", year: "2024", type: "Historical Epic" },
+  { title: "TITANIC", hero: "Leonardo DiCaprio", year: "1997", type: "Romantic Drama" },
+  { title: "BARBIE", hero: "Margot Robbie", year: "2023", type: "Fantasy Comedy" },
+  { title: "JOKER", hero: "Joaquin Phoenix", year: "2019", type: "Psychological Thriller" },
+  { title: "JOKER FOLIE A DEUX", hero: "Joaquin Phoenix", year: "2024", type: "Psychological Drama" },
+
+  // Cinematic Classics & Oscar Greats
+  { title: "THE SHAWSHANK REDEMPTION", hero: "Tim Robbins", year: "1994", type: "Drama" },
+  { title: "PULP FICTION", hero: "John Travolta", year: "1994", type: "Crime Drama" },
+  { title: "FORREST GUMP", hero: "Tom Hanks", year: "1994", type: "Comedy Drama" },
+  { title: "FIGHT CLUB", hero: "Brad Pitt", year: "1999", type: "Psychological Drama" },
+  { title: "THE GODFATHER", hero: "Marlon Brando", year: "1972", type: "Crime Drama" },
+  { title: "THE GODFATHER PART II", hero: "Al Pacino", year: "1974", type: "Crime Drama" },
+  { title: "SCHINDLERS LIST", hero: "Liam Neeson", year: "1993", type: "Historical Drama" },
+  { title: "12 ANGRY MEN", hero: "Henry Fonda", year: "1957", type: "Legal Drama" },
+  { title: "SE7EN", hero: "Brad Pitt", year: "1995", type: "Crime Thriller" },
+  { title: "THE SILENCE OF THE LAMBS", hero: "Anthony Hopkins", year: "1991", type: "Psychological Thriller" },
+  { title: "SAVING PRIVATE RYAN", hero: "Tom Hanks", year: "1998", type: "War Drama" },
+  { title: "THE PRESTIGE", hero: "Christian Bale", year: "2006", type: "Mystery Thriller" },
+  { title: "THE DEPARTED", hero: "Leonardo DiCaprio", year: "2006", type: "Crime Thriller" },
+  { title: "WHIPLASH", hero: "Miles Teller", year: "2014", type: "Musical Drama" },
+  { title: "THE GREEN MILE", hero: "Tom Hanks", year: "1999", type: "Fantasy Drama" },
+  { title: "INGLOURIOUS BASTERDS", hero: "Brad Pitt", year: "2009", type: "War Drama" },
+  { title: "GOODFELLAS", hero: "Robert De Niro", year: "1990", type: "Crime Drama" },
+  { title: "CASINO", hero: "Robert De Niro", year: "1995", type: "Crime Drama" },
+  { title: "SCARFACE", hero: "Al Pacino", year: "1983", type: "Crime Drama" },
+
+  // Fantasy, Marvel, DC & Blockbuster Franchises
+  { title: "THE LORD OF THE RINGS THE FELLOWSHIP OF THE RING", hero: "Elijah Wood", year: "2001", type: "Fantasy Epic" },
+  { title: "THE LORD OF THE RINGS THE TWO TOWERS", hero: "Elijah Wood", year: "2002", type: "Fantasy Epic" },
+  { title: "THE LORD OF THE RINGS THE RETURN OF THE KING", hero: "Elijah Wood", year: "2003", type: "Fantasy Epic" },
+  { title: "THE HOBBIT AN UNEXPECTED JOURNEY", hero: "Martin Freeman", year: "2012", type: "Fantasy Adventure" },
+  { title: "HARRY POTTER AND THE SORCERERS STONE", hero: "Daniel Radcliffe", year: "2001", type: "Fantasy" },
+  { title: "HARRY POTTER AND THE PRISONER OF AZKABAN", hero: "Daniel Radcliffe", year: "2004", type: "Fantasy" },
+  { title: "HARRY POTTER AND THE DEATHLY HALLOWS PART 2", hero: "Daniel Radcliffe", year: "2011", type: "Fantasy Epic" },
+  { title: "AVENGERS ENDGAME", hero: "Robert Downey Jr", year: "2019", type: "Superhero Action" },
+  { title: "AVENGERS INFINITY WAR", hero: "Robert Downey Jr", year: "2018", type: "Superhero Action" },
+  { title: "THE AVENGERS", hero: "Robert Downey Jr", year: "2012", type: "Superhero Action" },
+  { title: "AVENGERS AGE OF ULTRON", hero: "Robert Downey Jr", year: "2015", type: "Superhero Action" },
+  { title: "SPIDER-MAN NO WAY HOME", hero: "Tom Holland", year: "2021", type: "Superhero Action" },
+  { title: "SPIDER-MAN INTO THE SPIDER-VERSE", hero: "Shameik Moore", year: "2018", type: "Animated Superhero" },
+  { title: "SPIDER-MAN ACROSS THE SPIDER-VERSE", hero: "Shameik Moore", year: "2023", type: "Animated Superhero" },
+  { title: "DEADPOOL & WOLVERINE", hero: "Ryan Reynolds", year: "2024", type: "Superhero Action" },
+  { title: "DEADPOOL", hero: "Ryan Reynolds", year: "2016", type: "Superhero Comedy" },
+  { title: "LOGAN", hero: "Hugh Jackman", year: "2017", type: "Superhero Action" },
+  { title: "BLACK PANTHER", hero: "Chadwick Boseman", year: "2018", type: "Superhero Action" },
+  { title: "IRON MAN", hero: "Robert Downey Jr", year: "2008", type: "Superhero Action" },
+  { title: "CAPTAIN AMERICA THE WINTER SOLDIER", hero: "Chris Evans", year: "2014", type: "Superhero Action" },
+  { title: "CAPTAIN AMERICA CIVIL WAR", hero: "Chris Evans", year: "2016", type: "Superhero Action" },
+  { title: "GUARDIANS OF THE GALAXY VOL 3", hero: "Chris Pratt", year: "2023", type: "Sci-Fi Adventure" },
+  { title: "DOCTOR STRANGE IN THE MULTIVERSE OF MADNESS", hero: "Benedict Cumberbatch", year: "2022", type: "Superhero Fantasy" },
+  { title: "PIRATES OF THE CARIBBEAN THE CURSE OF THE BLACK PEARL", hero: "Johnny Depp", year: "2003", type: "Fantasy Adventure" },
+  { title: "PIRATES OF THE CARIBBEAN DEAD MANS CHEST", hero: "Johnny Depp", year: "2006", type: "Fantasy Adventure" },
+  { title: "PIRATES OF THE CARIBBEAN AT WORLDS END", hero: "Johnny Depp", year: "2007", type: "Fantasy Adventure" },
+  { title: "STAR WARS EPISODE IV A NEW HOPE", hero: "Mark Hamill", year: "1977", type: "Sci-Fi Space" },
+  { title: "STAR WARS EPISODE V THE EMPIRE STRIKES BACK", hero: "Mark Hamill", year: "1980", type: "Sci-Fi Space" },
+  { title: "JURASSIC PARK", hero: "Sam Neill", year: "1993", type: "Sci-Fi Adventure" },
+  { title: "JURASSIC WORLD", hero: "Chris Pratt", year: "2015", type: "Sci-Fi Action" },
+
+  // Action, Thriller & High-Octane Hits
+  { title: "JOHN WICK", hero: "Keanu Reeves", year: "2014", type: "Action Thriller" },
+  { title: "JOHN WICK CHAPTER 4", hero: "Keanu Reeves", year: "2023", type: "Action Thriller" },
+  { title: "MISSION IMPOSSIBLE DEAD RECKONING", hero: "Tom Cruise", year: "2023", type: "Action Thriller" },
+  { title: "MISSION IMPOSSIBLE FALLOUT", hero: "Tom Cruise", year: "2018", type: "Action Thriller" },
+  { title: "FAST X", hero: "Vin Diesel", year: "2023", type: "Action" },
+  { title: "FURIOUS 7", hero: "Vin Diesel", year: "2015", type: "Action" },
+  { title: "MAD MAX FURY ROAD", hero: "Tom Hardy", year: "2015", type: "Post-Apocalyptic Action" },
+  { title: "FURIOSA A MAD MAX SAGA", hero: "Anya Taylor-Joy", year: "2024", type: "Post-Apocalyptic Action" },
+  { title: "TERMINATOR 2 JUDGMENT DAY", hero: "Arnold Schwarzenegger", year: "1991", type: "Sci-Fi Action" },
+  { title: "DIE HARD", hero: "Bruce Willis", year: "1988", type: "Action Thriller" },
+  { title: "RAIDERS OF THE LOST ARK", hero: "Harrison Ford", year: "1981", type: "Adventure" },
+  { title: "THE BOURNE IDENTITY", hero: "Matt Damon", year: "2002", type: "Action Thriller" },
+  { title: "THE BOURNE ULTIMATUM", hero: "Matt Damon", year: "2007", type: "Action Thriller" },
+  { title: "CASINO ROYALE", hero: "Daniel Craig", year: "2006", type: "Spy Action" },
+  { title: "SKYFALL", hero: "Daniel Craig", year: "2012", type: "Spy Action" },
+  { title: "THE WOLF OF WALL STREET", hero: "Leonardo DiCaprio", year: "2013", type: "Biographical Comedy" },
+  { title: "SHUTTER ISLAND", hero: "Leonardo DiCaprio", year: "2010", type: "Psychological Thriller" },
+  { title: "DJANGO UNCHAINED", hero: "Jamie Foxx", year: "2012", type: "Western Drama" },
+  { title: "ONCE UPON A TIME IN HOLLYWOOD", hero: "Leonardo DiCaprio", year: "2019", type: "Comedy Drama" },
+  { title: "THE REVENANT", hero: "Leonardo DiCaprio", year: "2015", type: "Survival Drama" },
+  { title: "BLADE RUNNER 2049", hero: "Ryan Gosling", year: "2017", type: "Sci-Fi Mystery" },
+  { title: "ARRIVAL", hero: "Amy Adams", year: "2016", type: "Sci-Fi Drama" },
+  { title: "KNIVES OUT", hero: "Daniel Craig", year: "2019", type: "Mystery Comedy" },
+  { title: "GLASS ONION A KNIVES OUT MYSTERY", hero: "Daniel Craig", year: "2022", type: "Mystery Comedy" },
+
+  // Animated Favorites & Family Blockbusters
+  { title: "INSIDE OUT 2", hero: "Amy Poehler", year: "2024", type: "Animated Comedy" },
+  { title: "INSIDE OUT", hero: "Amy Poehler", year: "2015", type: "Animated Comedy" },
+  { title: "THE SUPER MARIO BROS MOVIE", hero: "Chris Pratt", year: "2023", type: "Animated Adventure" },
+  { title: "THE LION KING", hero: "Matthew Broderick", year: "1994", type: "Animated Musical" },
+  { title: "FROZEN", hero: "Kristen Bell", year: "2013", type: "Animated Fantasy" },
+  { title: "FROZEN 2", hero: "Kristen Bell", year: "2019", type: "Animated Fantasy" },
+  { title: "TOY STORY", hero: "Tom Hanks", year: "1995", type: "Animated Comedy" },
+  { title: "TOY STORY 3", hero: "Tom Hanks", year: "2010", type: "Animated Comedy" },
+  { title: "FINDING NEMO", hero: "Albert Brooks", year: "2003", type: "Animated Adventure" },
+  { title: "THE INCREDIBLES", hero: "Craig T Nelson", year: "2004", type: "Animated Superhero" },
+  { title: "WALL-E", hero: "Ben Burtt", year: "2008", type: "Animated Sci-Fi" },
+  { title: "UP", hero: "Edward Asner", year: "2009", type: "Animated Adventure" },
+  { title: "COCO", hero: "Anthony Gonzalez", year: "2017", type: "Animated Fantasy" },
+  { title: "RATATOUILLE", hero: "Patton Oswalt", year: "2007", type: "Animated Comedy" },
+  { title: "SHREK", hero: "Mike Myers", year: "2001", type: "Animated Comedy" },
+  { title: "SHREK 2", hero: "Mike Myers", year: "2004", type: "Animated Comedy" },
+  { title: "KUNG FU PANDA", hero: "Jack Black", year: "2008", type: "Animated Action" },
+  { title: "KUNG FU PANDA 4", hero: "Jack Black", year: "2024", type: "Animated Action" },
+  { title: "DESPICABLE ME", hero: "Steve Carell", year: "2010", type: "Animated Comedy" },
+  { title: "DESPICABLE ME 4", hero: "Steve Carell", year: "2024", type: "Animated Comedy" },
+  { title: "MOANA", hero: "Auli'i Cravalho", year: "2016", type: "Animated Adventure" },
+  { title: "MOANA 2", hero: "Auli'i Cravalho", year: "2024", type: "Animated Adventure" },
+  { title: "ZOOTOPIA", hero: "Ginnifer Goodwin", year: "2016", type: "Animated Comedy" },
+  { title: "HOW TO TRAIN YOUR DRAGON", hero: "Jay Baruchel", year: "2010", type: "Animated Fantasy" },
+
+  // Horror, Mystery & Thrillers
+  { title: "THE CONJURING", hero: "Vera Farmiga", year: "2013", type: "Supernatural Horror" },
+  { title: "THE CONJURING 2", hero: "Vera Farmiga", year: "2016", type: "Supernatural Horror" },
+  { title: "IT", hero: "Bill Skarsgard", year: "2017", type: "Horror" },
+  { title: "GET OUT", hero: "Daniel Kaluuya", year: "2017", type: "Horror Thriller" },
+  { title: "A QUIET PLACE", hero: "Emily Blunt", year: "2018", type: "Post-Apocalyptic Horror" },
+  { title: "A QUIET PLACE DAY ONE", hero: "Lupita Nyong'o", year: "2024", type: "Sci-Fi Horror" },
+  { title: "HEREDITARY", hero: "Toni Collette", year: "2018", type: "Psychological Horror" },
+  { title: "M3GAN", hero: "Allison Williams", year: "2023", type: "Sci-Fi Horror" },
+  { title: "SMILE", hero: "Sosie Bacon", year: "2022", type: "Horror" },
+  { title: "ALIEN", hero: "Sigourney Weaver", year: "1979", type: "Sci-Fi Horror" },
+  { title: "ALIENS", hero: "Sigourney Weaver", year: "1986", type: "Sci-Fi Action" },
+  { title: "THE SHINING", hero: "Jack Nicholson", year: "1980", type: "Psychological Horror" },
+  { title: "PSYCHO", hero: "Anthony Perkins", year: "1960", type: "Psychological Thriller" },
+  { title: "PRISONERS", hero: "Hugh Jackman", year: "2013", type: "Crime Thriller" },
+  { title: "ZODIAC", hero: "Jake Gyllenhaal", year: "2007", type: "Mystery Thriller" },
+  { title: "NIGHTCRAWLER", hero: "Jake Gyllenhaal", year: "2014", type: "Crime Thriller" },
+  { title: "SICARIO", hero: "Emily Blunt", year: "2015", type: "Action Crime" },
+  { title: "NO COUNTRY FOR OLD MEN", hero: "Tommy Lee Jones", year: "2007", type: "Crime Thriller" },
+  { title: "AMERICAN PSYCHO", hero: "Christian Bale", year: "2000", type: "Psychological Thriller" },
+  { title: "BLACK SWAN", hero: "Natalie Portman", year: "2010", type: "Psychological Thriller" },
+
+  // Modern Drama, Romance & Musical Gems
+  { title: "LA LA LAND", hero: "Ryan Gosling", year: "2016", type: "Musical Romance" },
+  { title: "THE GREATEST SHOWMAN", hero: "Hugh Jackman", year: "2017", type: "Musical Drama" },
+  { title: "BOHEMIAN RHAPSODY", hero: "Rami Malek", year: "2018", type: "Biographical Musical" },
+  { title: "A STAR IS BORN", hero: "Bradley Cooper", year: "2018", type: "Romantic Drama" },
+  { title: "THE SOCIAL NETWORK", hero: "Jesse Eisenberg", year: "2010", type: "Biographical Drama" },
+  { title: "EVERYTHING EVERYWHERE ALL AT ONCE", hero: "Michelle Yeoh", year: "2022", type: "Sci-Fi Comedy Drama" },
+  { title: "THE NOTEBOOK", hero: "Ryan Gosling", year: "2004", type: "Romance" },
+  { title: "THE FAULT IN OUR STARS", hero: "Shailene Woodley", year: "2014", type: "Romantic Drama" },
+  { title: "PRIDE & PREJUDICE", hero: "Keira Knightley", year: "2005", type: "Romantic Drama" },
+  { title: "LITTLE WOMEN", hero: "Saoirse Ronan", year: "2019", type: "Period Drama" },
+  { title: "ME BEFORE YOU", hero: "Emilia Clarke", year: "2016", type: "Romantic Drama" },
+  { title: "THE TRUMAN SHOW", hero: "Jim Carrey", year: "1998", type: "Comedy Drama" },
+  { title: "ETERNAL SUNSHINE OF THE SPOTLESS MIND", hero: "Jim Carrey", year: "2004", type: "Romantic Sci-Fi" },
+
+  // 200 Newly Added Popular Easy & Famous Classics
+  { title: "BACK TO THE FUTURE", hero: "Michael J Fox", year: "1985", type: "Sci-Fi Adventure" },
+  { title: "BACK TO THE FUTURE PART II", hero: "Michael J Fox", year: "1989", type: "Sci-Fi Adventure" },
+  { title: "GHOSTBUSTERS", hero: "Bill Murray", year: "1984", type: "Sci-Fi Comedy" },
+  { title: "E T THE EXTRA TERRESTRIAL", hero: "Henry Thomas", year: "1982", type: "Sci-Fi Family" },
+  { title: "HOME ALONE", hero: "Macaulay Culkin", year: "1990", type: "Family Comedy" },
+  { title: "HOME ALONE 2 LOST IN NEW YORK", hero: "Macaulay Culkin", year: "1992", type: "Family Comedy" },
+  { title: "MEN IN BLACK", hero: "Will Smith", year: "1997", type: "Sci-Fi Comedy" },
+  { title: "MEN IN BLACK 2", hero: "Will Smith", year: "2002", type: "Sci-Fi Comedy" },
+  { title: "INDEPENDENCE DAY", hero: "Will Smith", year: "1996", type: "Sci-Fi Action" },
+  { title: "THE PURSUIT OF HAPPYNESS", hero: "Will Smith", year: "2006", type: "Biographical Drama" },
+  { title: "I AM LEGEND", hero: "Will Smith", year: "2007", type: "Post-Apocalyptic Sci-Fi" },
+  { title: "HANCOCK", hero: "Will Smith", year: "2008", type: "Superhero Comedy" },
+  { title: "BAD BOYS", hero: "Will Smith", year: "1995", type: "Action Comedy" },
+  { title: "BAD BOYS FOR LIFE", hero: "Will Smith", year: "2020", type: "Action Comedy" },
+  { title: "BAD BOYS RIDE OR DIE", hero: "Will Smith", year: "2024", type: "Action Comedy" },
+  { title: "THE TERMINATOR", hero: "Arnold Schwarzenegger", year: "1984", type: "Sci-Fi Action" },
+  { title: "PREDATOR", hero: "Arnold Schwarzenegger", year: "1987", type: "Sci-Fi Action" },
+  { title: "TRUE LIES", hero: "Arnold Schwarzenegger", year: "1994", type: "Action Comedy" },
+  { title: "TOTAL RECALL", hero: "Arnold Schwarzenegger", year: "1990", type: "Sci-Fi Action" },
+  { title: "RAMBO FIRST BLOOD", hero: "Sylvester Stallone", year: "1982", type: "Action" },
+  { title: "ROCKY", hero: "Sylvester Stallone", year: "1976", type: "Sports Drama" },
+  { title: "ROCKY IV", hero: "Sylvester Stallone", year: "1985", type: "Sports Drama" },
+  { title: "CREED", hero: "Michael B Jordan", year: "2015", type: "Sports Drama" },
+  { title: "CREED II", hero: "Michael B Jordan", year: "2018", type: "Sports Drama" },
+  { title: "THE EXPENDABLES", hero: "Sylvester Stallone", year: "2010", type: "Action" },
+  { title: "SPEED", hero: "Keanu Reeves", year: "1994", type: "Action Thriller" },
+  { title: "THE MASK", hero: "Jim Carrey", year: "1994", type: "Fantasy Comedy" },
+  { title: "DUMB AND DUMBER", hero: "Jim Carrey", year: "1994", type: "Comedy" },
+  { title: "LIAR LIAR", hero: "Jim Carrey", year: "1997", type: "Comedy" },
+  { title: "BRUCE ALMIGHTY", hero: "Jim Carrey", year: "2003", type: "Fantasy Comedy" },
+  { title: "ALADDIN", hero: "Will Smith", year: "2019", type: "Fantasy Adventure" },
+  { title: "BEAUTY AND THE BEAST", hero: "Emma Watson", year: "2017", type: "Fantasy Romance" },
+  { title: "CINDERELLA", hero: "Lily James", year: "2015", type: "Fantasy Romance" },
+  { title: "MALEFICENT", hero: "Angelina Jolie", year: "2014", type: "Fantasy" },
+  { title: "ALICE IN WONDERLAND", hero: "Johnny Depp", year: "2010", type: "Fantasy" },
+  { title: "CHARLIE AND THE CHOCOLATE FACTORY", hero: "Johnny Depp", year: "2005", type: "Fantasy" },
+  { title: "NATIONAL TREASURE", hero: "Nicolas Cage", year: "2004", type: "Action Adventure" },
+  { title: "FACE OFF", hero: "Nicolas Cage", year: "1997", type: "Action Thriller" },
+  { title: "CON AIR", hero: "Nicolas Cage", year: "1997", type: "Action Thriller" },
+  { title: "THE ROCK", hero: "Sean Connery", year: "1996", type: "Action Thriller" },
+  { title: "ARMAGEDDON", hero: "Bruce Willis", year: "1998", type: "Sci-Fi Disaster" },
+  { title: "THE SIXTH SENSE", hero: "Bruce Willis", year: "1999", type: "Supernatural Mystery" },
+  { title: "UNBREAKABLE", hero: "Bruce Willis", year: "2000", type: "Superhero Thriller" },
+  { title: "SPLIT", hero: "James McAvoy", year: "2016", type: "Psychological Thriller" },
+  { title: "GLASS", hero: "James McAvoy", year: "2019", type: "Superhero Thriller" },
+  { title: "MISSION IMPOSSIBLE", hero: "Tom Cruise", year: "1996", type: "Action Thriller" },
+  { title: "MISSION IMPOSSIBLE GHOST PROTOCOL", hero: "Tom Cruise", year: "2011", type: "Action Thriller" },
+  { title: "MISSION IMPOSSIBLE ROGUE NATION", hero: "Tom Cruise", year: "2015", type: "Action Thriller" },
+  { title: "EDGE OF TOMORROW", hero: "Tom Cruise", year: "2014", type: "Sci-Fi Action" },
+  { title: "MINORITY REPORT", hero: "Tom Cruise", year: "2002", type: "Sci-Fi Action" },
+  { title: "WAR OF THE WORLDS", hero: "Tom Cruise", year: "2005", type: "Sci-Fi Disaster" },
+  { title: "JACK REACHER", hero: "Tom Cruise", year: "2012", type: "Action Thriller" },
+  { title: "THE LAST SAMURAI", hero: "Tom Cruise", year: "2003", type: "Historical Drama" },
+  { title: "JUMANJI WELCOME TO THE JUNGLE", hero: "Dwayne Johnson", year: "2017", type: "Action Comedy" },
+  { title: "JUMANJI THE NEXT LEVEL", hero: "Dwayne Johnson", year: "2019", type: "Action Comedy" },
+  { title: "JUMANJI", hero: "Robin Williams", year: "1995", type: "Fantasy Adventure" },
+  { title: "NIGHT AT THE MUSEUM", hero: "Ben Stiller", year: "2006", type: "Fantasy Comedy" },
+  { title: "SAN ANDREAS", hero: "Dwayne Johnson", year: "2015", type: "Action Disaster" },
+  { title: "RAMPAGE", hero: "Dwayne Johnson", year: "2018", type: "Sci-Fi Action" },
+  { title: "FAST FIVE", hero: "Vin Diesel", year: "2011", type: "Heist Action" },
+  { title: "THE FATE OF THE FURIOUS", hero: "Vin Diesel", year: "2017", type: "Action" },
+  { title: "HOBBS & SHAW", hero: "Dwayne Johnson", year: "2019", type: "Action Comedy" },
+  { title: "TRANSFORMERS DARK OF THE MOON", hero: "Shia LaBeouf", year: "2011", type: "Sci-Fi Action" },
+  { title: "TRANSFORMERS AGE OF EXTINCTION", hero: "Mark Wahlberg", year: "2014", type: "Sci-Fi Action" },
+  { title: "BUMBLEBEE", hero: "Hailee Steinfeld", year: "2018", type: "Sci-Fi Action" },
+  { title: "PACIFIC RIM", hero: "Charlie Hunnam", year: "2013", type: "Sci-Fi Action" },
+  { title: "GODZILLA", hero: "Aaron Taylor-Johnson", year: "2014", type: "Sci-Fi Monster" },
+  { title: "KONG SKULL ISLAND", hero: "Tom Hiddleston", year: "2017", type: "Action Monster" },
+  { title: "GODZILLA VS KONG", hero: "Alexander Skarsgard", year: "2021", type: "Sci-Fi Monster" },
+  { title: "GODZILLA X KONG THE NEW EMPIRE", hero: "Rebecca Hall", year: "2024", type: "Sci-Fi Monster" },
+  { title: "MEG 2 THE TRENCH", hero: "Jason Statham", year: "2023", type: "Action Sci-Fi" },
+  { title: "THE MEG", hero: "Jason Statham", year: "2018", type: "Action Sci-Fi" },
+  { title: "THE TRANSPORTER", hero: "Jason Statham", year: "2002", type: "Action Thriller" },
+  { title: "WRATH OF MAN", hero: "Jason Statham", year: "2021", type: "Action Thriller" },
+  { title: "THE BEEKEEPER", hero: "Jason Statham", year: "2024", type: "Action Thriller" },
+  { title: "FREE GUY", hero: "Ryan Reynolds", year: "2021", type: "Sci-Fi Comedy" },
+  { title: "THE ADAM PROJECT", hero: "Ryan Reynolds", year: "2022", type: "Sci-Fi Action" },
+  { title: "RED NOTICE", hero: "Dwayne Johnson", year: "2021", type: "Action Comedy" },
+  { title: "SPIDER-MAN", hero: "Tobey Maguire", year: "2002", type: "Superhero Action" },
+  { title: "SPIDER-MAN 2", hero: "Tobey Maguire", year: "2004", type: "Superhero Action" },
+  { title: "SPIDER-MAN 3", hero: "Tobey Maguire", year: "2007", type: "Superhero Action" },
+  { title: "THE AMAZING SPIDER-MAN", hero: "Andrew Garfield", year: "2012", type: "Superhero Action" },
+  { title: "SPIDER-MAN HOMECOMING", hero: "Tom Holland", year: "2017", type: "Superhero Action" },
+  { title: "SPIDER-MAN FAR FROM HOME", hero: "Tom Holland", year: "2019", type: "Superhero Action" },
+  { title: "MAN OF STEEL", hero: "Henry Cavill", year: "2013", type: "Superhero Action" },
+  { title: "BATMAN V SUPERMAN DAWN OF JUSTICE", hero: "Henry Cavill", year: "2016", type: "Superhero Action" },
+  { title: "JUSTICE LEAGUE", hero: "Ben Affleck", year: "2017", type: "Superhero Action" },
+  { title: "WONDER WOMAN", hero: "Gal Gadot", year: "2017", type: "Superhero Action" },
+  { title: "AQUAMAN", hero: "Jason Momoa", year: "2018", type: "Superhero Action" },
+  { title: "SHAZAM", hero: "Zachary Levi", year: "2019", type: "Superhero Comedy" },
+  { title: "SUICIDE SQUAD", hero: "Will Smith", year: "2016", type: "Superhero Action" },
+  { title: "THE SUICIDE SQUAD", hero: "Margot Robbie", year: "2021", type: "Superhero Comedy" },
+  { title: "VENOM", hero: "Tom Hardy", year: "2018", type: "Superhero Action" },
+  { title: "VENOM LET THERE BE CARNAGE", hero: "Tom Hardy", year: "2021", type: "Superhero Action" },
+  { title: "VENOM THE LAST DANCE", hero: "Tom Hardy", year: "2024", type: "Superhero Action" },
+  { title: "X-MEN DAYS OF FUTURE PAST", hero: "Hugh Jackman", year: "2014", type: "Superhero Action" },
+  { title: "X-MEN FIRST CLASS", hero: "James McAvoy", year: "2011", type: "Superhero Action" },
+  { title: "THOR RAGNAROK", hero: "Chris Hemsworth", year: "2017", type: "Superhero Comedy" },
+  { title: "DOCTOR STRANGE", hero: "Benedict Cumberbatch", year: "2016", type: "Superhero Fantasy" },
+  { title: "ANT-MAN", hero: "Paul Rudd", year: "2015", type: "Superhero Comedy" },
+  { title: "SHANG-CHI AND THE LEGEND OF THE TEN RINGS", hero: "Simu Liu", year: "2021", type: "Superhero Action" },
+  { title: "ETERNALS", hero: "Gemma Chan", year: "2021", type: "Superhero Sci-Fi" },
+  { title: "THE CHRONICLES OF NARNIA THE LION THE WITCH AND THE WARDROBE", hero: "William Moseley", year: "2005", type: "Fantasy Adventure" },
+  { title: "THE MUMMY", hero: "Brendan Fraser", year: "1999", type: "Action Fantasy" },
+  { title: "THE MUMMY RETURNS", hero: "Brendan Fraser", year: "2001", type: "Action Fantasy" },
+  { title: "VAN HELSING", hero: "Hugh Jackman", year: "2004", type: "Action Fantasy" },
+  { title: "TROY", hero: "Brad Pitt", year: "2004", type: "Historical Epic" },
+  { title: "300", hero: "Gerard Butler", year: "2006", type: "Action Fantasy" },
+  { title: "KINGDOM OF HEAVEN", hero: "Orlando Bloom", year: "2005", type: "Historical Epic" },
+  { title: "Braveheart", hero: "Mel Gibson", year: "1995", type: "Historical Drama" },
+  { title: "ALEXANDER", hero: "Colin Farrell", year: "2004", type: "Historical Epic" },
+  { title: "CLASH OF THE TITANS", hero: "Sam Worthington", year: "2010", type: "Fantasy Action" },
+  { title: "PERCY JACKSON & THE LIGHTNING THIEF", hero: "Logan Lerman", year: "2010", type: "Fantasy Adventure" },
+  { title: "THE HUNGER GAMES CATCHING FIRE", hero: "Jennifer Lawrence", year: "2013", type: "Dystopian Action" },
+  { title: "THE MAZE RUNNER", hero: "Dylan O'Brien", year: "2014", type: "Sci-Fi Action" },
+  { title: "DIVERGENT", hero: "Shailene Woodley", year: "2014", type: "Sci-Fi Action" },
+  { title: "TWILIGHT SAGA ECLIPSE", hero: "Kristen Stewart", year: "2010", type: "Romantic Fantasy" },
+  { title: "50 FIRST DATES", hero: "Adam Sandler", year: "2004", type: "Romantic Comedy" },
+  { title: "JUST GO WITH IT", hero: "Adam Sandler", year: "2011", type: "Romantic Comedy" },
+  { title: "CLICK", hero: "Adam Sandler", year: "2006", type: "Fantasy Comedy" },
+  { title: "GROWN UPS", hero: "Adam Sandler", year: "2010", type: "Comedy" },
+  { title: "THE HANGOVER", hero: "Bradley Cooper", year: "2009", type: "Comedy" },
+  { title: "THE HANGOVER PART II", hero: "Bradley Cooper", year: "2011", type: "Comedy" },
+  { title: "TROPIC THUNDER", hero: "Ben Stiller", year: "2008", type: "Action Comedy" },
+  { title: "SUPERBAD", hero: "Jonah Hill", year: "2007", type: "Comedy" },
+  { title: "21 JUMP STREET", hero: "Channing Tatum", year: "2012", type: "Action Comedy" },
+  { title: "22 JUMP STREET", hero: "Channing Tatum", year: "2014", type: "Action Comedy" },
+  { title: "TED", hero: "Mark Wahlberg", year: "2012", type: "Comedy" },
+  { title: "WE'RE THE MILLERS", hero: "Jason Sudeikis", year: "2013", type: "Comedy" },
+  { title: "CRAZY RICH ASIANS", hero: "Constance Wu", year: "2018", type: "Romantic Comedy" },
+  { title: "THE PROPOSAL", hero: "Sandra Bullock", year: "2009", type: "Romantic Comedy" },
+  { title: "PRETTY WOMAN", hero: "Richard Gere", year: "1990", type: "Romantic Comedy" },
+  { title: "NOTTING HILL", hero: "Hugh Grant", year: "1999", type: "Romantic Comedy" },
+  { title: "MAMMA MIA", hero: "Meryl Streep", year: "2008", type: "Musical Comedy" },
+  { title: "THE DEVIL WEARS PRADA", hero: "Meryl Streep", year: "2006", type: "Comedy Drama" },
+  { title: "MEET THE PARENTS", hero: "Ben Stiller", year: "2000", type: "Comedy" },
+  { title: "PUSS IN BOOTS THE LAST WISH", hero: "Antonio Banderas", year: "2022", type: "Animated Adventure" },
+  { title: "SING", hero: "Matthew McConaughey", year: "2016", type: "Animated Comedy" },
+  { title: "THE SECRET LIFE OF PETS", hero: "Louis C K", year: "2016", type: "Animated Comedy" },
+  { title: "HOTEL TRANSYLVANIA", hero: "Adam Sandler", year: "2012", type: "Animated Comedy" },
+  { title: "MEGAMIND", hero: "Will Ferrell", year: "2010", type: "Animated Comedy" },
+  { title: "MONSTERS INC", hero: "John Goodman", year: "2001", type: "Animated Comedy" },
+  { title: "CARS", hero: "Owen Wilson", year: "2006", type: "Animated Comedy" },
+  { title: "BIG HERO 6", hero: "Ryan Potter", year: "2014", type: "Animated Superhero" },
+  { title: "TANGLED", hero: "Zachary Levi", year: "2010", type: "Animated Fantasy" },
+  { title: "BRAVE", hero: "Kelly Macdonald", year: "2012", type: "Animated Fantasy" },
+  { title: "WRECK IT RALPH", hero: "John C Reilly", year: "2012", type: "Animated Comedy" },
+  { title: "SOUL", hero: "Jamie Foxx", year: "2020", type: "Animated Drama" },
+  { title: "ELEMENTAL", hero: "Leah Lewis", year: "2023", type: "Animated Romance" },
+  { title: "A QUIET PLACE PART II", hero: "Emily Blunt", year: "2020", type: "Horror Thriller" },
+  { title: "DON'T BREATHE", hero: "Stephen Lang", year: "2016", type: "Horror Thriller" },
+  { title: "THE INVISIBLE MAN", hero: "Elisabeth Moss", year: "2020", type: "Sci-Fi Horror" },
+  { title: "ANNABELLE", hero: "Annabelle Wallis", year: "2014", type: "Supernatural Horror" },
+  { title: "THE NUN", hero: "Taissa Farmiga", year: "2018", type: "Supernatural Horror" },
+  { title: "INSIDIOUS", hero: "Patrick Wilson", year: "2010", type: "Supernatural Horror" },
+  { title: "INSIDIOUS CHAPTER 2", hero: "Patrick Wilson", year: "2013", type: "Supernatural Horror" },
+  { title: "PARANORMAL ACTIVITY", hero: "Katie Featherston", year: "2007", type: "Horror" },
+  { title: "TEXAS CHAINSAW MASSACRE", hero: "Jessica Biel", year: "2003", type: "Horror" },
+  { title: "SAW", hero: "Cary Elwes", year: "2004", type: "Horror Mystery" },
+  { title: "FINAL DESTINATION", hero: "Devon Sawa", year: "2000", type: "Horror Thriller" },
+  { title: "SCREAM", hero: "Neve Campbell", year: "1996", type: "Slasher Horror" },
+  { title: "REAL STEEL", hero: "Hugh Jackman", year: "2011", type: "Sci-Fi Action" },
+  { title: "DISTRICT 9", hero: "Sharlto Copley", year: "2009", type: "Sci-Fi Thriller" },
+  { title: "EX MACHINA", hero: "Domhnall Gleeson", year: "2014", type: "Sci-Fi Thriller" },
+  { title: "PASSENGERS", hero: "Chris Pratt", year: "2016", type: "Sci-Fi Romance" },
+  { title: "GRAVITY", hero: "Sandra Bullock", year: "2013", type: "Sci-Fi Thriller" },
+  { title: "THE MARTIAN", hero: "Matt Damon", year: "2015", type: "Sci-Fi Drama" },
+  { title: "CAST AWAY", hero: "Tom Hanks", year: "2000", type: "Survival Drama" },
+  { title: "LIFE OF PI", hero: "Suraj Sharma", year: "2012", type: "Adventure Drama" },
+  { title: "SLUMDOG MILLIONAIRE", hero: "Dev Patel", year: "2008", type: "Drama" },
+  { title: "LION", hero: "Dev Patel", year: "2016", type: "Biographical Drama" },
+  { title: "FORD V FERRARI", hero: "Matt Damon", year: "2019", type: "Sports Drama" },
+  { title: "RUSH", hero: "Chris Hemsworth", year: "2013", type: "Sports Drama" },
+  { title: "MONEYBALL", hero: "Brad Pitt", year: "2011", type: "Sports Drama" },
+  { title: "THE BLIND SIDE", hero: "Sandra Bullock", year: "2009", type: "Biographical Drama" },
+  { title: "THE IMITATION GAME", hero: "Benedict Cumberbatch", year: "2014", type: "Biographical Drama" },
+  { title: "THE THEORY OF EVERYTHING", hero: "Eddie Redmayne", year: "2014", type: "Biographical Drama" },
+  { title: "HACKSAW RIDGE", hero: "Andrew Garfield", year: "2016", type: "Biographical War" },
+  { title: "1917", hero: "George MacKay", year: "2019", type: "War Drama" },
+  { title: "DUNKIRK", hero: "Fionn Whitehead", year: "2017", type: "War Action" },
+  { title: "AMERICAN SNIPER", hero: "Bradley Cooper", year: "2014", type: "Biographical War" },
+  { title: "LONE SURVIVOR", hero: "Mark Wahlberg", year: "2013", type: "War Action" }
+]
+    };
+    const firebaseConfig = {
+      apiKey: "AIzaSyA0DSuRVDcIbNZvN8ccxUPA4vx2o2HIVQ0",
+      authDomain: "xollywood-bbec9.firebaseapp.com",
+      databaseURL: "https://xollywood-bbec9-default-rtdb.firebaseio.com",
+      projectId: "xollywood-bbec9",
+      storageBucket: "xollywood-bbec9.firebasestorage.app",
+      messagingSenderId: "164085619380",
+      appId: "1:164085619380:web:84b399a72cdcbfb26d5e1",
+      measurementId: "G-7DLXQ781CM"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    const username = (localStorage.getItem('xollywood_username') || 'PLAYER').trim();
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('code');
+    const roomRef = db.ref('xvxml_rooms/' + roomCode);
+
+    let roomData = null;
+
+    function initLobbyEngine() {
+      roomRef.on('value', (snapshot) => {
+        roomData = snapshot.val();
+        if (!roomData) return;
+
+        if (roomData.startYear) {
+          localStorage.setItem('xollywood_mp_start_year', roomData.startYear);
+        }
+        if (roomData.endYear) {
+          localStorage.setItem('xollywood_mp_end_year', roomData.endYear);
+        }
+
+        const isHost = (roomData.host && roomData.host.trim().toLowerCase() === username.toLowerCase()) ||
+                       (Object.keys(roomData.teamA || {})[0] && (roomData.teamA['slot_0'] || '').trim().toLowerCase() === username.toLowerCase());
+
+        let currentRound = roomData.currentRound || 1;
+        let totalRounds = roomData.totalRounds || 3;
+
+        document.getElementById('roundTitleDisplay').textContent = `ROUND ${currentRound} BATTLE LOBBY`;
+
+        if (isHost && (!roomData.rounds || !roomData.rounds['round_' + currentRound])) {
+          generatePairingsForRound(currentRound);
+        }
+
+        if (roomData.rounds && roomData.rounds['round_' + currentRound]) {
+          let roundPairings = roomData.rounds['round_' + currentRound].pairings || {};
+          renderPairings(roundPairings, isHost, currentRound, totalRounds);
+
+          Object.keys(roundPairings).forEach(pairKey => {
+            let p = roundPairings[pairKey];
+            if ((p.playerA === username || p.playerB === username) && p.readyA && p.readyB && !p.winner) {
+              window.location.href = `multiplayer_game.html?code=${roomCode}&round=${currentRound}&pair=${pairKey}`;
+            }
+          });
+        }
+      });
+
+      roomRef.child('finalResult').on('value', (snapshot) => {
+        const result = snapshot.val();
+        if (result && result.revealed) {
+          displayFinalWinnerOnScreen(result);
+        }
+      });
+    }
+
+    function generatePairingsForRound(roundNum) {
+      let teamA = Object.values(roomData.teamA || {}).filter(n => n);
+      let teamB = Object.values(roomData.teamB || {}).filter(n => n);
+      teamB.sort(() => Math.random() - 0.5);
+
+      let industry = roomData.industry || 'MOLLYWOOD';
+      let pool = (typeof MOVIE_POOLS !== 'undefined' && MOVIE_POOLS[industry]) ? MOVIE_POOLS[industry] : [
+        { title: "LUCIFER", hero: "Mohanlal", year: "2019", type: "Political Action" },
+        { title: "DRISHYAM", hero: "Mohanlal", year: "2013", type: "Crime Mystery" },
+        { title: "AAVESHAM", hero: "Fahadh Faasil", year: "2024", type: "Action Comedy" }
+      ];
+
+      let rawStart = roomData.startYear || localStorage.getItem('xollywood_mp_start_year');
+      let rawEnd = roomData.endYear || localStorage.getItem('xollywood_mp_end_year');
+
+      let startYear = rawStart ? parseInt(rawStart) : 1900;
+      let endYear = rawEnd ? parseInt(rawEnd) : 2099;
+
+      let filteredPool = pool.filter(m => {
+        let y = parseInt(m.year);
+        return !isNaN(y) && y >= startYear && y <= endYear;
+      });
+
+      // ഫിൽട്ടർ ചെയ്ത ഇയറിൽ മൂവീസ് ഇല്ലെങ്കിൽ ബാക്കപ്പ് ആയി മെയിൻ പൂളിൽ നിന്ന് സിനിമ എടുക്കും
+      if (filteredPool.length === 0) {
+        filteredPool = pool;
+      }
+
+      let pairingsObj = {};
+      let maxCount = Math.max(teamA.length, teamB.length);
+      for (let i = 0; i < maxCount; i++) {
+        let randMovie = filteredPool[Math.floor(Math.random() * filteredPool.length)];
+        
+        // Industry പേരും സിനിമയ്ക്കൊപ്പം ചേർക്കുന്നു
+        let selectedMovieObj = {
+          title: randMovie.title,
+          hero: randMovie.hero || '',
+          year: randMovie.year || '',
+          type: randMovie.type || randMovie.genre || '',
+          industry: industry
+        };
+
+        pairingsObj['pair_' + i] = {
+          playerA: teamA[i] || 'TEAM A PLAYER',
+          playerB: teamB[i] || 'TEAM B PLAYER',
+          readyA: false,
+          readyB: false,
+          movie: selectedMovieObj,
+          winner: ''
+        };
+      }
+
+      roomRef.child('rounds/round_' + roundNum).set({ pairings: pairingsObj });
+    }
+
+    function renderPairings(pairings, isHost, currentRound, totalRounds) {
+      const container = document.getElementById('pairingsContainer');
+      container.innerHTML = '';
+
+      let allPairsFinished = true;
+
+      Object.keys(pairings).forEach((key) => {
+        let p = pairings[key];
+        let isUserInPair = (p.playerA === username || p.playerB === username);
+        let userReady = (p.playerA === username && p.readyA) || (p.playerB === username && p.readyB);
+
+        let statusText = "READY";
+        let btnClass = "";
+        if (p.winner) {
+          statusText = `WIN: ${p.winner}`;
+        } else if (userReady) {
+          statusText = "READY ✓";
+          btnClass = "ready-active";
+        }
+
+        if (!p.winner) allPairsFinished = false;
+
+        container.innerHTML += `
+          <div class="pairing-card">
+            <span class="player-node team-a">${p.playerA}</span>
+            <span class="vs-tag">VS</span>
+            <span class="player-node team-b">${p.playerB}</span>
+            ${isUserInPair && !p.winner ? `<button type="button" class="btn-ready ${btnClass}" onclick="toggleReady('${key}', ${currentRound})">${statusText}</button>` : `<button type="button" class="btn-ready" disabled>${statusText}</button>`}
+          </div>
+        `;
+      });
+
+      const hostNextRow = document.getElementById('hostNextRow');
+      const btnHostAction = document.getElementById('btnHostRoundAction');
+      const waitingBar = document.getElementById('waitingHostBar');
+
+      if (allPairsFinished && Object.keys(pairings).length > 0) {
+        if (isHost) {
+          waitingBar.style.display = 'none';
+          hostNextRow.style.display = 'flex';
+
+          if (currentRound < totalRounds) {
+            btnHostAction.textContent = `START ROUND ${currentRound + 1}`;
+            btnHostAction.classList.remove('btn-see-winner-active');
+          } else {
+            btnHostAction.innerHTML = `🏆 SEE THE WINNER`;
+            btnHostAction.classList.add('btn-see-winner-active');
+          }
+        } else {
+          hostNextRow.style.display = 'none';
+          waitingBar.style.display = 'block';
+          if (currentRound < totalRounds) {
+            waitingBar.innerHTML = `⏳ ROUND ${currentRound} COMPLETED! WAITING FOR HOST TO START ROUND ${currentRound + 1}...`;
+          } else {
+            waitingBar.innerHTML = `🏆 ALL ROUNDS COMPLETED! WAITING FOR HOST TO REVEAL THE WINNER...`;
+          }
+        }
+      } else {
+        hostNextRow.style.display = 'none';
+        waitingBar.style.display = 'none';
+      }
+    }
+
+    function toggleReady(pairKey, currentRound) {
+      playClickSound();
+      roomRef.child(`rounds/round_${currentRound}/pairings/` + pairKey).once('value', (snap) => {
+        let p = snap.val();
+        if (!p || p.winner) return;
+
+        let updates = {};
+        if (p.playerA === username) updates['readyA'] = !p.readyA;
+        else if (p.playerB === username) updates['readyB'] = !p.readyB;
+
+        roomRef.child(`rounds/round_${currentRound}/pairings/` + pairKey).update(updates);
+      });
+    }
+
+    function handleHostRoundAction() {
+      playClickSound();
+      let currentRound = roomData.currentRound || 1;
+      let totalRounds = roomData.totalRounds || 3;
+
+      if (currentRound < totalRounds) {
+        roomRef.update({ currentRound: currentRound + 1 });
+      } else {
+        broadcastFinalWinnerToAllPlayers();
+      }
+    }
+
+    function broadcastFinalWinnerToAllPlayers() {
+      roomRef.once('value', (snap) => {
+        let rData = snap.val() || {};
+        let rounds = rData.rounds || {};
+        let winsTeamA = 0;
+        let winsTeamB = 0;
+        let playerWins = {};
+
+        let teamAMembers = Object.values(rData.teamA || {}).filter(n => n);
+        let teamBMembers = Object.values(rData.teamB || {}).filter(n => n);
+
+        teamAMembers.forEach(name => { playerWins[name] = 0; });
+        teamBMembers.forEach(name => { playerWins[name] = 0; });
+
+        Object.keys(rounds).forEach(rKey => {
+          let pairings = rounds[rKey].pairings || {};
+          Object.keys(pairings).forEach(pKey => {
+            let p = pairings[pKey];
+            if (p.winner && p.winner !== "DRAW") {
+              if (teamAMembers.includes(p.winner)) {
+                winsTeamA++;
+                playerWins[p.winner] = (playerWins[p.winner] || 0) + 1;
+              } else if (teamBMembers.includes(p.winner)) {
+                winsTeamB++;
+                playerWins[p.winner] = (playerWins[p.winner] || 0) + 1;
+              }
+            }
+          });
+        });
+
+        let winningTeamName = "DRAW";
+        let winningPlayers = [];
+
+        if (winsTeamA > winsTeamB) {
+          winningTeamName = "TEAM A";
+          winningPlayers = teamAMembers;
+        } else if (winsTeamB > winsTeamA) {
+          winningTeamName = "TEAM B";
+          winningPlayers = teamBMembers;
+        } else {
+          winningTeamName = "IT'S A DRAW!";
+          winningPlayers = [...teamAMembers, ...teamBMembers];
+        }
+
+        let maxWins = 0;
+        Object.keys(playerWins).forEach(pName => {
+          if (playerWins[pName] > maxWins) maxWins = playerWins[pName];
+        });
+
+        let topPlayers = [];
+        if (maxWins > 0) {
+          Object.keys(playerWins).forEach(pName => {
+            if (playerWins[pName] === maxWins) {
+              topPlayers.push(`${pName} (${maxWins} wins)`);
+            }
+          });
+        }
+
+        roomRef.child('finalResult').set({
+          revealed: true,
+          winningTeam: winningTeamName,
+          winningPlayers: winningPlayers,
+          teamAWins: winsTeamA,
+          teamBWins: winsTeamB,
+          topPlayersText: topPlayers.length > 0 ? topPlayers.join(', ') : 'All Players',
+          timestamp: Date.now()
+        });
+      });
+    }
+
+    function displayFinalWinnerOnScreen(res) {
+      const modal = document.getElementById('gameModal');
+      const teamTitle = document.getElementById('modalWinnerTeam');
+      const playersList = document.getElementById('modalWinnerPlayers');
+      const mvpBadge = document.getElementById('modalMvpBadge');
+      const scoreSummary = document.getElementById('modalScoreSummary');
+
+      if (res.winningTeam.includes("DRAW")) {
+        teamTitle.textContent = "IT'S A DRAW!";
+      } else {
+        teamTitle.textContent = `${res.winningTeam} WINS!`;
+      }
+
+      if (res.winningPlayers && res.winningPlayers.length > 0) {
+        playersList.textContent = `CHAMPIONS: ${res.winningPlayers.join(' • ')}`;
+      } else {
+        playersList.textContent = '';
+      }
+
+      if (res.topPlayersText) {
+        mvpBadge.textContent = `★ SUPER PERFORMER: ${res.topPlayersText} ★`;
+        mvpBadge.style.display = 'block';
+      } else {
+        mvpBadge.style.display = 'none';
+      }
+
+      scoreSummary.textContent = `FINAL SCORE • TEAM A: ${res.teamAWins} WINS  |  TEAM B: ${res.teamBWins} WINS`;
+
+      playSuccessChime();
+      modal.classList.add('active');
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 250]);
+    }
+
+    function closeWinnerModal() {
+      document.getElementById('gameModal').classList.remove('active');
+    }
+  </script>
+</body>
+</html>

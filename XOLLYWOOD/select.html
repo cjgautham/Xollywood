@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>XOLLYWOOD - Select Mode</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+    }
+
+    #spaceCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Left Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    }
+
+    .incoming-flash-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000000;
+      opacity: 1;
+      pointer-events: none;
+      z-index: 60;
+      transition: opacity 0.4s ease-out;
+    }
+
+    .page-loaded .incoming-flash-overlay {
+      opacity: 0;
+    }
+
+    .selected-title-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .massive-title-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: clamp(2px, 1.2vw, 14px);
+    }
+
+    .massive-letter {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(2.4rem, 11vw, 6.8rem);
+      line-height: 1;
+      display: inline-block;
+      opacity: 0;
+      transform: scale(0.2) translateY(50px);
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s ease;
+      
+      background: linear-gradient(180deg, #ffffff 0%, #c2d5e2 40%, #5a768d 70%, #9cb8c9 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.65);
+      filter: 
+        drop-shadow(0 0 15px rgba(0, 240, 255, 0.75))
+        drop-shadow(0 0 35px rgba(0, 160, 255, 0.45))
+        drop-shadow(0 15px 30px rgba(0, 0, 0, 0.95));
+    }
+
+    .play-action-container {
+      margin-top: 40px;
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: opacity 0.5s ease 0.6s, transform 0.5s ease 0.6s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .play-mode-btn {
+      pointer-events: auto;
+      background: transparent;
+      color: #ffffff;
+      border: none;
+      outline: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(1rem, 3.8vw, 1.2rem);
+      font-weight: 700;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 10px 24px;
+      position: relative;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s ease, transform 0.2s ease, text-shadow 0.2s ease;
+    }
+
+    .play-mode-btn:hover {
+      color: #00f0ff;
+      text-shadow: 0 0 18px #00f0ff, 0 0 35px #00f0ff;
+      transform: scale(1.05);
+    }
+
+    .play-mode-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Top Left Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+    <div class="incoming-flash-overlay" id="flashOverlay"></div>
+
+    <div class="selected-title-layer">
+      <div class="massive-title-container" id="massiveTitleContainer"></div>
+      
+      <div class="play-action-container" id="playActionContainer">
+        <button type="button" class="play-mode-btn" id="btnPlayAlone" onclick="startRocketLaunch('alone')">PLAY ALONE</button>
+        <button type="button" class="play-mode-btn" id="btnPlayFriends" onclick="startRocketLaunch('friends')">PLAY WITH FRIENDS</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    const massiveTitleContainer = document.getElementById('massiveTitleContainer');
+    const playActionContainer = document.getElementById('playActionContainer');
+    const btnPlayAlone = document.getElementById('btnPlayAlone');
+    const btnPlayFriends = document.getElementById('btnPlayFriends');
+    const flashOverlay = document.getElementById('flashOverlay');
+
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let width, height;
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Sound Management & localStorage Sync
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+
+      setTimeout(() => {
+        document.body.classList.add('page-loaded');
+        if (!bgmMuted) {
+          sndBgm.volume = 0.25;
+          sndBgm.play().catch(() => {});
+        }
+      }, 50);
+
+      // Trigger Grand Letter-by-Letter Reveal
+      setTimeout(() => {
+        revealMassiveIndustryTitle(selectedIndustry);
+      }, 350);
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    // Retrieve selected industry from URL or localStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const selectedIndustry = urlParams.get('industry') || localStorage.getItem('xollywood_industry') || 'MOLLYWOOD';
+    const selectedLanguage = urlParams.get('lang') || localStorage.getItem('xollywood_language') || 'malayalam';
+
+    // 1. Cosmic Stars
+    const dustParticles = [];
+    const NUM_DUST = 80;
+    for (let i = 0; i < NUM_DUST; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.6 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.25,
+        speedY: (Math.random() - 0.5) * 0.4 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    // 2. Comets
+    const backgroundComets = [];
+    let lastCometSpawn = Date.now();
+
+    function spawnBackgroundComet() {
+      const now = Date.now();
+      if (now - lastCometSpawn > 2400 && Math.random() < 0.65) {
+        lastCometSpawn = now;
+        backgroundComets.push({
+          x: Math.random() * width * 1.2 + width * 0.05,
+          y: -40,
+          speedX: -2.8 - Math.random() * 3.5,
+          speedY: 4.8 + Math.random() * 4.8,
+          length: 45 + Math.random() * 45,
+          size: 1.5 + Math.random() * 1.2,
+          alpha: 1
+        });
+      }
+    }
+
+    function revealMassiveIndustryTitle(name) {
+      massiveTitleContainer.innerHTML = '';
+      const letters = name.split('');
+
+      letters.forEach((char) => {
+        const span = document.createElement('span');
+        span.className = 'massive-letter';
+        span.textContent = char;
+        massiveTitleContainer.appendChild(span);
+      });
+
+      const spanElements = massiveTitleContainer.querySelectorAll('.massive-letter');
+      const mid = Math.floor(letters.length / 2);
+      
+      const order = [];
+      order.push(mid);
+      for (let i = 1; i <= mid; i++) {
+        if (mid - i >= 0) order.push(mid - i);
+        if (mid + i < letters.length) order.push(mid + i);
+      }
+
+      order.forEach((targetIdx, step) => {
+        setTimeout(() => {
+          const el = spanElements[targetIdx];
+          if (el) {
+            el.style.opacity = '1';
+            el.style.transform = 'scale(1) translateY(0)';
+          }
+        }, step * 95);
+      });
+
+      setTimeout(() => {
+        playActionContainer.style.opacity = '1';
+        playActionContainer.style.transform = 'translateY(0)';
+        playActionContainer.style.pointerEvents = 'auto';
+      }, (order.length * 95) + 350);
+    }
+
+    let isLaunchingMode = false;
+
+    function startRocketLaunch(modeType) {
+      if (isLaunchingMode) return;
+      isLaunchingMode = true;
+
+      localStorage.setItem('xollywood_mode', modeType);
+
+      // Determine target destination URL
+      const targetUrl = modeType === 'alone' 
+        ? `game.html?industry=${selectedIndustry}&lang=${selectedLanguage}&mode=single`
+        : `game2.html?industry=${selectedIndustry}&lang=${selectedLanguage}&mode=multi`;
+
+      // Background Preload link insertion
+      const prefetchLink = document.createElement('link');
+      prefetchLink.rel = 'prefetch';
+      prefetchLink.href = targetUrl;
+      document.head.appendChild(prefetchLink);
+
+      // Play click sound from 0.26s and vibrate
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+        if (navigator.vibrate) navigator.vibrate(40);
+
+        // Short timeout (180ms) to allow the click sound to start clearly before page redirect
+        setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 180);
+      } else {
+        // Direct navigation if SFX is muted
+        window.location.href = targetUrl;
+      }
+    }
+
+    let time = 0;
+    function render() {
+      time += 0.02;
+
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        const twinkle = p.alpha * (0.5 + Math.sin(time * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      spawnBackgroundComet();
+      for (let i = backgroundComets.length - 1; i >= 0; i--) {
+        const c = backgroundComets[i];
+        c.x += c.speedX;
+        c.y += c.speedY;
+        c.alpha -= 0.012;
+
+        if (c.alpha <= 0 || c.y > height) {
+          backgroundComets.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = c.alpha;
+        
+        const grad = ctx.createLinearGradient(c.x, c.y, c.x - c.speedX * 7, c.y - c.speedY * 7);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, '#00f0ff');
+        grad.addColorStop(1, 'transparent');
+        
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(c.x - c.speedX * 7, c.y - c.speedY * 7);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.size;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
