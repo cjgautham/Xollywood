@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>XOLLYWOOD</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      touch-action: none;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+    }
+
+    #cinematicCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Adjusted Swipe Indicator position for all Mobile & Desktop devices */
+    .swipe-indicator {
+      position: absolute;
+      bottom: max(60px, calc(env(safe-area-inset-bottom) + 30px));
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(0, 240, 255, 0.85);
+      font-size: clamp(0.75rem, 3.2vw, 0.85rem);
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      font-weight: 700;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+    }
+
+    .swipe-indicator.visible {
+      opacity: 1;
+    }
+
+    .arrow-up {
+      font-size: clamp(1.2rem, 5vw, 1.5rem);
+      line-height: 1;
+      animation: bounceUp 1.4s infinite ease-in-out;
+    }
+
+    @keyframes bounceUp {
+      0%, 100% { transform: translateY(0); opacity: 0.5; }
+      50% { transform: translateY(-10px); opacity: 1; }
+    }
+
+    /* Top Right Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      right: max(20px, env(safe-area-inset-right));
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.6);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    }
+
+    .ui-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .title-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: clamp(2px, 1.2vw, 12px);
+    }
+
+    .letter {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(2.4rem, 11vw, 6.8rem);
+      line-height: 1;
+      display: inline-block;
+      opacity: 0;
+      transform: scale(0.2) translateY(50px);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      
+      background: linear-gradient(180deg, #ffffff 0%, #c2d5e2 40%, #5a768d 70%, #9cb8c9 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.65);
+      filter: 
+        drop-shadow(0 0 15px rgba(0, 240, 255, 0.75))
+        drop-shadow(0 0 35px rgba(0, 160, 255, 0.45))
+        drop-shadow(0 15px 30px rgba(0, 0, 0, 0.95));
+    }
+
+    .thunder-flash {
+      filter: 
+        drop-shadow(0 0 25px #ffffff)
+        drop-shadow(0 0 50px #00f0ff)
+        drop-shadow(0 0 80px #00f0ff) !important;
+      -webkit-text-stroke: 1.5px #ffffff !important;
+      transform: scale(1.15) !important;
+    }
+
+    .action-container {
+      margin-top: 40px;
+      opacity: 0; 
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .btn-begin-text {
+      pointer-events: none;
+      background: transparent;
+      color: #ffffff;
+      border: none;
+      outline: none;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 10px 24px;
+      position: relative;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.85);
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    .btn-free-fall {
+      animation: freeFallDrop 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards !important;
+      pointer-events: none !important;
+    }
+
+    @keyframes freeFallDrop {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      30% { transform: translateY(30px) rotate(4deg); opacity: 0.9; }
+      100% { transform: translateY(250px) rotate(15deg); opacity: 0; }
+    }
+
+    .scene-flash-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, #ffffff 30%, #bbf7ff 70%, #00f0ff 100%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 50;
+      transition: opacity 0.2s ease-out;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndSwipeSeq" src="swipe_sequence.mp3" preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+  <audio id="sndRocket" src="rocket_launch.mp3" preload="auto"></audio>
+
+  <!-- Top Right Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="cinematicCanvas"></canvas>
+    <div class="vignette"></div>
+    <div class="scene-flash-overlay" id="flashOverlay"></div>
+
+    <div class="swipe-indicator" id="swipeText">
+      <div class="arrow-up">↑</div>
+      <span>SWIPE</span>
+    </div>
+
+    <div class="ui-layer">
+      <div class="title-container" id="titleContainer">
+        <span class="letter" id="firstLetter">X</span>
+        <span class="letter">O</span>
+        <span class="letter">L</span>
+        <span class="letter">L</span>
+        <span class="letter">Y</span>
+        <span class="letter">W</span>
+        <span class="letter">O</span>
+        <span class="letter">O</span>
+        <span class="letter">D</span>
+      </div>
+
+      <div class="action-container" id="actionWrap">
+        <button class="btn-begin-text" id="beginBtn" onclick="handleBeginClick()">BEGIN</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('cinematicCanvas');
+    const ctx = canvas.getContext('2d');
+    const letters = document.querySelectorAll('.letter');
+    const firstLetter = document.getElementById('firstLetter');
+    const actionWrap = document.getElementById('actionWrap');
+    const beginBtn = document.getElementById('beginBtn');
+    const swipeText = document.getElementById('swipeText');
+    const flashOverlay = document.getElementById('flashOverlay');
+
+    const sndBgm = document.getElementById('sndBgm');
+    const sndSwipeSeq = document.getElementById('sndSwipeSeq');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+    const sndRocket = document.getElementById('sndRocket');
+
+    let width, height;
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Sound Management Engine & Mute State via localStorage
+    let userInteracted = false;
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        if (userInteracted && !isRocketActive) {
+          sndBgm.play().catch(() => {});
+        }
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    function playInitialBGM() {
+      if (!userInteracted) {
+        userInteracted = true;
+        swipeText.classList.add('visible');
+
+        if (!bgmMuted) {
+          sndBgm.volume = 0.5;
+          sndBgm.play().catch(() => {});
+        }
+      }
+    }
+
+    window.addEventListener('click', playInitialBGM, { once: true });
+    window.addEventListener('touchstart', playInitialBGM, { once: true });
+
+    // 1. Sparkling Silver Cosmic Dust
+    const dustParticles = [];
+    const NUM_DUST = 70;
+    for (let i = 0; i < NUM_DUST; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.6 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.25,
+        speedY: (Math.random() - 0.5) * 0.4 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    // 2. Background Comets
+    const backgroundComets = [];
+    let lastCometSpawn = Date.now();
+
+    function spawnBackgroundComet() {
+      const now = Date.now();
+      if (now - lastCometSpawn > 4500 && Math.random() < 0.35) {
+        lastCometSpawn = now;
+        backgroundComets.push({
+          x: Math.random() * width * 1.1 + width * 0.1,
+          y: -30,
+          speedX: -2.5 - Math.random() * 3,
+          speedY: 4.5 + Math.random() * 4.5,
+          length: 45 + Math.random() * 40,
+          size: 1.5 + Math.random() * 1.0,
+          alpha: 1
+        });
+      }
+    }
+
+    // 3. Blue Laser Beams
+    const blueBeams = [
+      { xRatio: 0.28, delay: 0.00, width: 2.0, lengthFactor: 0.75 },
+      { xRatio: 0.18, delay: 0.04, width: 1.4, lengthFactor: 0.40 },
+      { xRatio: 0.22, delay: 0.07, width: 1.5, lengthFactor: 0.90 },
+      { xRatio: 0.35, delay: 0.10, width: 1.8, lengthFactor: 0.55 },
+      { xRatio: 0.44, delay: 0.12, width: 1.6, lengthFactor: 0.80 },
+      { xRatio: 0.50, delay: 0.15, width: 1.8, lengthFactor: 0.45 },
+      { xRatio: 0.58, delay: 0.17, width: 1.5, lengthFactor: 0.85 },
+      { xRatio: 0.68, delay: 0.19, width: 1.9, lengthFactor: 0.60 },
+      { xRatio: 0.74, delay: 0.22, width: 1.3, lengthFactor: 0.70 },
+      { xRatio: 0.82, delay: 0.25, width: 1.6, lengthFactor: 0.95 },
+      { xRatio: 0.12, delay: 0.27, width: 1.3, lengthFactor: 0.50 },
+      { xRatio: 0.88, delay: 0.29, width: 1.4, lengthFactor: 0.65 },
+      { xRatio: 0.25, delay: 0.28, width: 1.7, lengthFactor: 0.85 },
+      { xRatio: 0.38, delay: 0.31, width: 1.4, lengthFactor: 0.45 },
+      { xRatio: 0.15, delay: 0.34, width: 1.5, lengthFactor: 0.70 },
+      { xRatio: 0.62, delay: 0.36, width: 1.8, lengthFactor: 0.90 },
+      { xRatio: 0.48, delay: 0.38, width: 1.6, lengthFactor: 0.50 },
+      { xRatio: 0.78, delay: 0.40, width: 1.5, lengthFactor: 0.80 },
+      { xRatio: 0.32, delay: 0.42, width: 1.9, lengthFactor: 0.60 },
+      { xRatio: 0.85, delay: 0.44, width: 1.4, lengthFactor: 0.75 }
+    ];
+
+    const letterOrder = [4, 3, 5, 2, 6, 1, 7, 0, 8];
+
+    let isTriggered = false;
+    let animProgress = 0;
+    let glitchExecuted = false;
+    let startY = 0;
+
+    function triggerAutoAnimation() {
+      if (!userInteracted || isTriggered) return;
+      isTriggered = true;
+      swipeText.style.opacity = '0';
+
+      if (!bgmMuted) sndBgm.volume = 0.15;
+      if (!sfxMuted) {
+        sndSwipeSeq.currentTime = 0;
+        sndSwipeSeq.play().catch(() => {});
+      }
+
+      const duration = 3200;
+      const startTime = performance.now();
+
+      function animateStep(now) {
+        const elapsed = now - startTime;
+        const rawProgress = Math.min(elapsed / duration, 1);
+        
+        animProgress = rawProgress < 0.5 
+          ? 2 * rawProgress * rawProgress 
+          : 1 - Math.pow(-2 * rawProgress + 2, 2) / 2;
+
+        if (rawProgress >= 0.95 && !glitchExecuted) {
+          glitchExecuted = true;
+          startThunderGlitch();
+        }
+
+        if (rawProgress < 1) {
+          requestAnimationFrame(animateStep);
+        } else {
+          if (!bgmMuted) sndBgm.volume = 0.6;
+        }
+      }
+      requestAnimationFrame(animateStep);
+    }
+
+    window.addEventListener('touchstart', (e) => {
+      startY = e.touches[0].clientY;
+      playInitialBGM();
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY;
+      if (startY - currentY > 30) {
+        triggerAutoAnimation();
+      }
+    }, { passive: true });
+
+    window.addEventListener('mousedown', (e) => {
+      startY = e.clientY;
+      playInitialBGM();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (e.buttons > 0 && startY - e.clientY > 30) {
+        triggerAutoAnimation();
+      }
+    });
+
+    window.addEventListener('wheel', (e) => {
+      if (e.deltaY > 10) {
+        triggerAutoAnimation();
+      }
+    }, { passive: true });
+
+    function startThunderGlitch() {
+      const glitchSequence = ['M', 'K', 'T', 'B', 'H', 'X'];
+      let step = 0;
+      
+      firstLetter.classList.add('thunder-flash');
+
+      const interval = setInterval(() => {
+        firstLetter.textContent = glitchSequence[step];
+        if (!sfxMuted && navigator.vibrate) navigator.vibrate(20);
+        step++;
+
+        if (step >= glitchSequence.length) {
+          clearInterval(interval);
+          setTimeout(() => {
+            firstLetter.classList.remove('thunder-flash');
+          }, 150);
+        }
+      }, 100);
+    }
+
+    // Rocket Sequence
+    let isRocketActive = false;
+    let rocketStartTime = 0;
+    const rocketParticles = [];
+    const rocketSmoke = [];
+
+    function handleBeginClick() {
+      if (!isTriggered || animProgress < 1 || isRocketActive) return;
+      isRocketActive = true;
+
+      // Preload the target page immediately in the background
+      const prefetchLink = document.createElement('link');
+      prefetchLink.rel = 'prefetch';
+      prefetchLink.href = 'land.html';
+      document.head.appendChild(prefetchLink);
+
+      sndBgm.pause();
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+        if (navigator.vibrate) navigator.vibrate([40, 80, 50]);
+      }
+
+      beginBtn.classList.add('btn-free-fall');
+
+      setTimeout(() => {
+        if (!sfxMuted) {
+          sndRocket.currentTime = 0;
+          sndRocket.play().catch(() => {});
+        }
+
+        rocketStartTime = performance.now();
+      }, 350);
+    }
+
+    function drawRocket(x, y, angle, scale, alpha) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = alpha;
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 20;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -32);
+      ctx.bezierCurveTo(16, -10, 16, 18, 12, 28);
+      ctx.lineTo(-12, 28);
+      ctx.bezierCurveTo(-16, 18, -16, -10, 0, -32);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(-12, 12);
+      ctx.lineTo(-24, 28);
+      ctx.lineTo(-12, 28);
+      ctx.closePath();
+      ctx.fillStyle = '#00f0ff';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(12, 12);
+      ctx.lineTo(24, 28);
+      ctx.lineTo(12, 28);
+      ctx.closePath();
+      ctx.fillStyle = '#00f0ff';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(0, -6, 6.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = '#ffffff';
+      ctx.shadowBlur = 12;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const flameLen = 35 + Math.random() * 20;
+      const flameGrad = ctx.createLinearGradient(0, 28, 0, 28 + flameLen);
+      flameGrad.addColorStop(0, '#ffffff');
+      flameGrad.addColorStop(0.25, '#00f0ff');
+      flameGrad.addColorStop(0.65, '#0044ff');
+      flameGrad.addColorStop(1, 'transparent');
+
+      ctx.beginPath();
+      ctx.moveTo(-10, 28);
+      ctx.quadraticCurveTo(0, 28 + flameLen * 1.3, 10, 28);
+      ctx.closePath();
+      ctx.fillStyle = flameGrad;
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 28;
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    let time = 0;
+    function render() {
+      time += 0.02;
+
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX;
+        p.y += p.speedY;
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        const twinkle = p.alpha * (0.5 + Math.sin(time * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      spawnBackgroundComet();
+      for (let i = backgroundComets.length - 1; i >= 0; i--) {
+        const c = backgroundComets[i];
+        c.x += c.speedX;
+        c.y += c.speedY;
+        c.alpha -= 0.012;
+
+        if (c.alpha <= 0 || c.y > height) {
+          backgroundComets.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = c.alpha;
+        
+        const grad = ctx.createLinearGradient(c.x, c.y, c.x - c.speedX * 7, c.y - c.speedY * 7);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, '#00f0ff');
+        grad.addColorStop(1, 'transparent');
+        
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(c.x - c.speedX * 7, c.y - c.speedY * 7);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.size;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 10;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.size * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      if (animProgress > 0.01 && animProgress < 0.78) {
+        const laserPhase = Math.min(animProgress / 0.74, 1);
+
+        blueBeams.forEach((beam) => {
+          const beamEnter = Math.min(Math.max((laserPhase - beam.delay) / 0.28, 0), 1);
+          if (beamEnter <= 0) return;
+
+          const beamExit = Math.min(Math.max((laserPhase - 0.32 - beam.delay * 0.45) / 0.28, 0), 1);
+          const alpha = (1 - beamExit) * Math.min(beamEnter * 2, 1);
+          if (alpha <= 0.01) return;
+
+          const lx = width * beam.xRatio;
+          const maxBeamLength = (height * 0.75) * beam.lengthFactor;
+          const startYPos = height * 0.03 + (height * 0.7) * beamExit;
+          const currentLength = maxBeamLength * beamEnter;
+          const endY = Math.min(startYPos + currentLength, height * 0.95);
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          ctx.beginPath();
+          ctx.moveTo(lx, startYPos);
+          ctx.lineTo(lx, endY);
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = beam.width * 2.8;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(lx, startYPos);
+          ctx.lineTo(lx, endY);
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = beam.width * 0.8;
+          ctx.shadowColor = '#ffffff';
+          ctx.shadowBlur = 6;
+          ctx.stroke();
+
+          if (beamEnter > 0.05 && beamExit < 0.9) {
+            ctx.beginPath();
+            ctx.arc(lx, endY, beam.width * 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 14;
+            ctx.fill();
+          }
+
+          ctx.restore();
+        });
+      }
+
+      if (animProgress > 0.42) {
+        const titlePhase = Math.min((animProgress - 0.42) / 0.58, 1);
+
+        letters.forEach((el, idx) => {
+          const orderIdx = letterOrder.indexOf(idx);
+          const letterThreshold = orderIdx / letterOrder.length;
+          const letterProg = Math.min(Math.max((titlePhase - letterThreshold * 0.35) / 0.65, 0), 1);
+
+          const scaleVal = 0.4 + letterProg * 0.6;
+          const translateYVal = (1 - letterProg) * 30;
+
+          el.style.opacity = `${letterProg}`;
+          el.style.transform = `scale(${scaleVal}) translateY(${translateYVal}px)`;
+        });
+
+        if (titlePhase > 0.80) {
+          const btnProg = (titlePhase - 0.80) / 0.20;
+          actionWrap.style.opacity = `${btnProg}`;
+          actionWrap.style.transform = `translateY(${(1 - btnProg) * 15}px)`;
+          if (animProgress >= 1) {
+            actionWrap.style.pointerEvents = 'auto';
+            beginBtn.style.pointerEvents = 'auto';
+          }
+        }
+      }
+
+      if (isRocketActive && rocketStartTime > 0) {
+        const elapsed = (performance.now() - rocketStartTime) / 1000;
+        const totalFlyTime = 1.4; // Boosted rocket animation speed for maximum responsiveness
+
+        const rx = width * 0.5;
+        const progress = Math.min(elapsed / totalFlyTime, 1);
+        const easeUp = Math.pow(progress, 2.6);
+
+        const startYPos = height + 100;
+        const targetYPos = -250;
+        const ry = startYPos - (startYPos - targetYPos) * easeUp;
+
+        const rScale = 0.9 + progress * 0.65;
+
+        if (progress < 0.9) {
+          const smokeCount = progress < 0.3 ? 5 : 3;
+          for (let k = 0; k < smokeCount; k++) {
+            rocketSmoke.push({
+              x: rx + (Math.random() - 0.5) * (80 + progress * 120),
+              y: ry + 35 + Math.random() * 20,
+              vx: (Math.random() - 0.5) * (4 + progress * 4),
+              vy: Math.random() * 3 + 1,
+              radius: 14 + Math.random() * 18,
+              alpha: 0.85
+            });
+          }
+
+          for (let j = 0; j < 4; j++) {
+            rocketParticles.push({
+              x: rx + (Math.random() - 0.5) * 12,
+              y: ry + 32,
+              vx: (Math.random() - 0.5) * 3,
+              vy: Math.random() * 4 + 3,
+              size: Math.random() * 3.5 + 1.5,
+              alpha: 1
+            });
+          }
+        }
+
+        for (let s = rocketSmoke.length - 1; s >= 0; s--) {
+          const sm = rocketSmoke[s];
+          sm.x += sm.vx;
+          sm.y += sm.vy;
+          sm.radius += 0.9;
+          sm.alpha -= 0.018;
+
+          if (sm.alpha <= 0) {
+            rocketSmoke.splice(s, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = sm.alpha * 0.45;
+          ctx.beginPath();
+          ctx.arc(sm.x, sm.y, sm.radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#00f0ff';
+          ctx.shadowColor = '#0077ff';
+          ctx.shadowBlur = 25;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        for (let p = rocketParticles.length - 1; p >= 0; p--) {
+          const pt = rocketParticles[p];
+          pt.x += pt.vx;
+          pt.y += pt.vy;
+          pt.alpha -= 0.022;
+
+          if (pt.alpha <= 0) {
+            rocketParticles.splice(p, 1);
+            continue;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = pt.alpha;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 16;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        if (progress < 1) {
+          drawRocket(rx, ry, 0, rScale, 1);
+        }
+
+        if (progress > 0.6) {
+          const flashVal = (progress - 0.6) / 0.4;
+          flashOverlay.style.opacity = `${flashVal}`;
+        }
+
+        // Direct instant navigation as soon as rocket exits top screen boundary
+        if (progress >= 1) {
+          window.location.href = 'land.html';
+          return;
+        }
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

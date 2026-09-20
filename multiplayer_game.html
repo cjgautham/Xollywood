@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>XOLLYWOOD - Active Battle Arena</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #ffffff;
+      touch-action: manipulation;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: clamp(10px, 2vh, 16px) clamp(8px, 2vw, 12px);
+      padding-top: max(clamp(10px, 2vh, 16px), env(safe-area-inset-top));
+      padding-bottom: max(clamp(10px, 2vh, 16px), env(safe-area-inset-bottom));
+    }
+
+    #spaceCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Audio Controls Top-Left */
+    .audio-controls {
+      position: fixed;
+      top: max(10px, env(safe-area-inset-top));
+      left: max(10px, env(safe-area-inset-left));
+      z-index: 100;
+      display: flex;
+      gap: 6px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.7);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.8rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 12px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
+    }
+
+    /* Timer Badge */
+    .timer-badge {
+      position: fixed;
+      top: max(10px, env(safe-area-inset-top));
+      right: max(10px, env(safe-area-inset-right));
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid #00f0ff;
+      color: #00f0ff;
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+      backdrop-filter: blur(6px);
+    }
+
+    /* Warning Banner */
+    .game-warning-banner {
+      position: fixed;
+      top: -70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 15, 30, 0.95);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      letter-spacing: 1.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      z-index: 150;
+      transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      text-align: center;
+      max-width: 90%;
+    }
+
+    .game-warning-banner.show { top: max(12px, env(safe-area-inset-top)); }
+
+    /* HUD Top */
+    .hud-top {
+      position: relative;
+      z-index: 20;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: clamp(12px, 3.5vh, 28px);
+    }
+
+    .hud-meta {
+      font-size: clamp(0.65rem, 2vw, 0.75rem);
+      letter-spacing: 1.5px;
+      color: rgba(0, 240, 255, 0.85);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    /* Centered Main Title */
+    .industry-life-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: clamp(3px, 1.2vw, 6px);
+      margin-bottom: 6px;
+      width: 100%;
+    }
+
+    .life-letter {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(1.1rem, 3.8vw, 1.8rem);
+      color: #ffffff;
+      display: inline-block;
+      text-shadow: 0 0 10px #00f0ff;
+      transition: all 0.45s ease;
+    }
+
+    .letter-dropped {
+      transform: translateY(60px) rotate(30deg) scale(0.3);
+      opacity: 0;
+      color: #ff0055 !important;
+      text-shadow: 0 0 10px #ff0055;
+    }
+
+    /* Clues Section */
+    .clue-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+
+    .clue-btn-row { display: flex; gap: 6px; }
+
+    .btn-clue {
+      background: rgba(0, 240, 255, 0.06);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #ffffff;
+      padding: 4px 10px;
+      font-size: clamp(0.62rem, 1.8vw, 0.72rem);
+      font-weight: 700;
+      letter-spacing: 1px;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.2s ease;
+    }
+
+    .btn-clue:hover:not(:disabled) {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .btn-clue:disabled {
+      border-color: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.25);
+      cursor: not-allowed;
+    }
+
+    .clue-display-box {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      min-height: 18px;
+    }
+
+    .clue-item {
+      font-size: 0.68rem;
+      letter-spacing: 0.8px;
+      color: #00f0ff;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    /* Game Board & Word Area with Spacing Improvements */
+    .game-board {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 12px 24px; /* Increased horizontal gap for spaces between words */
+      width: 100%;
+      max-width: 650px;
+      margin: auto 0;
+      padding: 8px;
+      overflow-y: auto;
+      max-height: 35vh;
+    }
+
+    .word-wrap {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: clamp(4px, 1.2vw, 8px);
+      margin: 2px 4px;
+    }
+
+    .char-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: clamp(20px, 4.8vw, 34px);
+    }
+
+    .char-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.1rem, 3.8vw, 1.7rem);
+      color: #ffffff;
+      text-shadow: 0 0 10px #00f0ff;
+      min-height: 28px;
+      opacity: 0;
+      transform: scale(0.2);
+      transition: all 0.25s ease;
+    }
+
+    .char-revealed {
+      opacity: 1 !important;
+      transform: scale(1) !important;
+    }
+
+    .char-dash {
+      width: 100%;
+      height: 2px;
+      background: #00f0ff;
+      box-shadow: 0 0 6px #00f0ff;
+      border-radius: 2px;
+      margin-top: 2px;
+    }
+
+    .char-slot.symbol-slot .char-dash {
+      background: transparent;
+      box-shadow: none;
+    }
+
+    /* Keyboard Container */
+    .keyboard-container {
+      position: relative;
+      z-index: 25;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(3px, 1vh, 5px);
+      margin-bottom: 2px;
+    }
+
+    .kb-row { 
+      display: flex; 
+      justify-content: center; 
+      gap: clamp(3px, 1vw, 5px); 
+      width: 100%;
+    }
+
+    .key-btn {
+      appearance: none;
+      background: rgba(0, 240, 255, 0.06);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #00f0ff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.75rem, 2.8vw, 1rem);
+      font-weight: 700;
+      flex: 1 1 0px;
+      max-width: clamp(24px, 7.8vw, 40px);
+      height: clamp(32px, 6.5vh, 42px);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      touch-action: manipulation;
+    }
+
+    .key-btn:hover:not(:disabled) {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+
+    .key-btn:disabled { pointer-events: none; }
+
+    /* Key Animations */
+    .key-correct {
+      background: rgba(0, 255, 170, 0.3) !important;
+      border-color: #00ffaa !important;
+      color: #00ffaa !important;
+      box-shadow: 0 0 12px rgba(0, 255, 170, 0.8), inset 0 0 4px rgba(0, 255, 170, 0.4) !important;
+      animation: keyCorrectPop 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    @keyframes keyCorrectPop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+
+    .key-dropped {
+      background: rgba(255, 0, 85, 0.45) !important;
+      border-color: #ff0055 !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 16px rgba(255, 0, 85, 0.9) !important;
+      animation: keyDropFall 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards !important;
+      pointer-events: none;
+    }
+
+    @keyframes keyDropFall {
+      0% {
+        transform: translateY(0) rotate(0deg) scale(1);
+        opacity: 1;
+        background: #ff0055;
+        box-shadow: 0 0 18px #ff0055;
+      }
+      22% {
+        transform: translateY(-6px) rotate(-6deg) scale(1.1);
+        opacity: 1;
+        background: #ff0055;
+      }
+      100% {
+        transform: translateY(60px) rotate(32deg) scale(0.2);
+        opacity: 0;
+        visibility: hidden;
+      }
+    }
+
+    /* VS Pre-Match Lobby Overlay */
+    #vsOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 5, 12, 0.94);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    #vsOverlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .vs-box-card {
+      background: rgba(0, 20, 35, 0.75);
+      border: 1.5px solid #00f0ff;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+      border-radius: 18px;
+      padding: 20px 16px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+    }
+
+    .vs-header-tag {
+      font-size: 0.78rem;
+      letter-spacing: 2px;
+      color: #00f0ff;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .vs-match-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .vs-player-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vs-player-name {
+      font-size: clamp(0.85rem, 3vw, 1rem);
+      font-weight: 800;
+      color: #ffffff;
+      text-transform: uppercase;
+      word-break: break-word;
+    }
+
+    .vs-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.1);
+      color: #888888;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .vs-badge.ready {
+      background: rgba(0, 255, 170, 0.2);
+      border-color: #00ffaa;
+      color: #00ffaa;
+      box-shadow: 0 0 8px rgba(0, 255, 170, 0.4);
+    }
+
+    .vs-divider {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: #ff0055;
+      text-shadow: 0 0 12px #ff0055;
+    }
+
+    .btn-ready-action {
+      background: linear-gradient(135deg, #00f0ff, #0077ff);
+      border: none;
+      color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 10px 28px;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .btn-ready-action:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 25px #00f0ff;
+    }
+
+    .btn-ready-action:disabled {
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.4);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .vs-countdown {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: #00ffaa;
+      text-shadow: 0 0 15px #00ffaa;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Result Modal */
+    #resultModal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    #resultModal.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .result-card {
+      background: rgba(0, 20, 35, 0.96);
+      border: 1.5px solid #00f0ff;
+      border-radius: 20px;
+      padding: 20px 16px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.45);
+      animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+
+    @keyframes modalPop {
+      0% { transform: scale(0.85); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .result-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(1.3rem, 4vw, 1.6rem);
+      font-weight: 900;
+      margin-bottom: 10px;
+      letter-spacing: 1.5px;
+    }
+
+    .result-title.win { color: #00ffaa; text-shadow: 0 0 15px #00ffaa; }
+    .result-title.lose { color: #ff0055; text-shadow: 0 0 15px #ff0055; }
+    .result-title.draw { color: #ffbc00; text-shadow: 0 0 15px #ffbc00; }
+
+    .movie-reveal-box {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid #00f0ff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin: 10px 0 14px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .movie-reveal-tag {
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      color: #ffd700;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .movie-reveal-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(1rem, 3.8vw, 1.4rem);
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+      word-break: break-word;
+    }
+
+    .result-info {
+      font-size: 0.82rem;
+      color: #e0f7fa;
+      margin-bottom: 14px;
+      line-height: 1.4;
+    }
+
+    .btn-continue-lobby {
+      appearance: none;
+      background: linear-gradient(135deg, #00f0ff, #0077ff);
+      border: none;
+      color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      padding: 10px 24px;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      width: 100%;
+      max-width: 260px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    .btn-continue-lobby:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 25px #00f0ff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Audio Controls -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div class="timer-badge" id="timerBadge">⏱ 00:00</div>
+  <div class="game-warning-banner" id="warningBanner">BATTLE ARENA</div>
+
+  <!-- Stage Layout -->
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="hud-top">
+      <div class="hud-meta" id="hudRoundMeta">ROUND 1 • 1v1 BATTLE</div>
+      <div class="industry-life-title" id="lifeTitleContainer"></div>
+      <div class="clue-panel">
+        <div class="clue-btn-row">
+          <button class="btn-clue" id="btnClueHero" onclick="useClue('hero')">HERO</button>
+          <button class="btn-clue" id="btnClueYear" onclick="useClue('year')">YEAR</button>
+          <button class="btn-clue" id="btnClueType" onclick="useClue('type')">GENRE</button>
+        </div>
+        <div class="clue-display-box" id="clueDisplayBox"></div>
+      </div>
+    </div>
+
+    <div class="game-board" id="gameBoard"></div>
+    <div class="keyboard-container" id="keyboardContainer"></div>
+  </div>
+
+  <!-- 1v1 VS Pre-match Ready Screen -->
+  <div id="vsOverlay">
+    <div class="vs-box-card">
+      <div class="vs-header-tag" id="vsRoundTitle">ROUND 1 MATCHUP</div>
+      
+      <div class="vs-match-row">
+        <div class="vs-player-col">
+          <div class="vs-player-name" id="vsPlayerAName">PLAYER 1</div>
+          <div class="vs-badge" id="vsBadgeA">WAITING...</div>
+        </div>
+
+        <div class="vs-divider">VS</div>
+
+        <div class="vs-player-col">
+          <div class="vs-player-name" id="vsPlayerBName">PLAYER 2</div>
+          <div class="vs-badge" id="vsBadgeB">WAITING...</div>
+        </div>
+      </div>
+
+      <div id="readyActionArea">
+        <button class="btn-ready-action" id="btnReadyToggle" onclick="handleReadyClick()">READY</button>
+      </div>
+
+      <div class="vs-countdown" id="vsCountdownBox" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Result Modal with Revealed Movie -->
+  <div id="resultModal">
+    <div class="result-card">
+      <div class="result-title" id="resModalTitle">MATCH COMPLETED</div>
+      
+      <div class="movie-reveal-box">
+        <div class="movie-reveal-tag">🎬 THE MOVIE WAS</div>
+        <div class="movie-reveal-title" id="resModalMovieTitle">UNKNOWN</div>
+      </div>
+
+      <div class="result-info" id="resModalInfo">Redirecting back to room lobby...</div>
+
+      <button type="button" class="btn-continue-lobby" id="btnContinueLobby" onclick="redirectToLobby()">
+        CONTINUE (<span id="redirectCountdown">4</span>s)
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Canvas Particle Background
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const particles = [];
+    for (let i = 0; i < 70; i++) {
+      particles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.5 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: (Math.random() - 0.5) * 0.3 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    let animTime = 0;
+    function render() {
+      animTime += 0.02;
+      ctx.clearRect(0, 0, width, height);
+      particles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+        const twinkle = p.alpha * (0.5 + Math.sin(animTime * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // Audio System
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    function initAudioUI() {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+      if (bgmMuted) { bgmBtn.classList.add('muted'); bgmBtn.textContent = '🔇'; }
+      if (sfxMuted) { sfxBtn.classList.add('muted'); sfxBtn.textContent = '🔇'; }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+    }
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    function playTone(freq, type = 'sine', duration = 0.12, vol = 0.2) {
+      if (sfxMuted) return;
+      try {
+        const aCtx = getAudioContext();
+        if (!aCtx) return;
+        const osc = aCtx.createOscillator();
+        const gain = aCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, aCtx.currentTime);
+        gain.gain.setValueAtTime(vol, aCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, aCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(aCtx.destination);
+        osc.start();
+        osc.stop(aCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    function playClickSound() {
+      if (!sfxMuted) {
+        if (sndClickDrop && sndClickDrop.readyState >= 2) {
+          sndClickDrop.currentTime = 0.26;
+          sndClickDrop.play().catch(() => playTone(600, 'triangle', 0.08));
+        } else {
+          playTone(600, 'triangle', 0.08);
+        }
+      }
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    function playSuccessSound() {
+      playTone(523.25, 'sine', 0.15);
+      setTimeout(() => playTone(659.25, 'sine', 0.2), 100);
+      setTimeout(() => playTone(783.99, 'sine', 0.3), 200);
+    }
+
+    function playFailSound() {
+      playTone(280, 'sawtooth', 0.25);
+      setTimeout(() => playTone(200, 'sawtooth', 0.4), 180);
+    }
+
+    function showWarning(text) {
+      const banner = document.getElementById('warningBanner');
+      banner.textContent = text;
+      banner.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([40, 40]);
+      setTimeout(() => { banner.classList.remove('show'); }, 2600);
+    }
+
+    // Firebase Setup
+    const firebaseConfig = {
+      apiKey: "AIzaSyA0DSuRVDcIbNZvN8ccxUPA4vx2o2HIVQ0",
+      authDomain: "xollywood-bbec9.firebaseapp.com",
+      databaseURL: "https://xollywood-bbec9-default-rtdb.firebaseio.com",
+      projectId: "xollywood-bbec9",
+      storageBucket: "xollywood-bbec9.firebasestorage.app",
+      messagingSenderId: "164085619380",
+      appId: "1:164085619380:web:84b399a72cdcbfb26d5e1",
+      measurementId: "G-7DLXQ781CM"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // Session Parameters
+    const username = (localStorage.getItem('xollywood_username') || 'PLAYER').trim();
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('code');
+    const currentRound = urlParams.get('round') || 1;
+    const pairKey = urlParams.get('pair') || 'pair_0';
+
+    if (!roomCode) {
+      alert("Room Code not found!");
+      window.location.href = "multiplayer3.html";
+    }
+
+    const roomRef = db.ref('xvxml_rooms/' + roomCode);
+    const pairRef = roomRef.child(`rounds/round_${currentRound}/pairings/${pairKey}`);
+
+    let currentMovie = null;
+    let guessedLetters = new Set();
+    let currentLifeIndex = 0;
+    let lifeLetters = "XOLLYWOOD".split('');
+    let isGameActive = false;
+    let timerInterval = null;
+    let battleStartTime = Date.now();
+    let isPlayerA = false;
+    let opponentName = "OPPONENT";
+    let myRole = "A";
+    let battleAlreadyEnded = false;
+    let hasCountStarted = false;
+
+    let redirectTimer = null;
+    let redirectSeconds = 4;
+
+    document.getElementById('hudRoundMeta').textContent = `ROUND ${currentRound} • 1v1 ARENA`;
+    document.getElementById('vsRoundTitle').textContent = `ROUND ${currentRound} 1v1 MATCHUP`;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initAudioUI();
+      bindPairSync();
+    });
+
+    function bindPairSync() {
+      pairRef.on('value', (snap) => {
+        const pairData = snap.val();
+        if (!pairData) {
+          showWarning("PAIR DATA NOT FOUND!");
+          return;
+        }
+
+        if ((pairData.playerA || '').trim().toLowerCase() === username.toLowerCase()) {
+          isPlayerA = true;
+          myRole = "A";
+          opponentName = pairData.playerB || "OPPONENT";
+        } else {
+          isPlayerA = false;
+          myRole = "B";
+          opponentName = pairData.playerA || "OPPONENT";
+        }
+
+        document.getElementById('vsPlayerAName').textContent = pairData.playerA || "PLAYER 1";
+        document.getElementById('vsPlayerBName').textContent = pairData.playerB || "PLAYER 2";
+
+        const badgeA = document.getElementById('vsBadgeA');
+        const badgeB = document.getElementById('vsBadgeB');
+        if (pairData.readyA) {
+          badgeA.textContent = "READY ✓";
+          badgeA.classList.add('ready');
+        } else {
+          badgeA.textContent = "WAITING...";
+          badgeA.classList.remove('ready');
+        }
+
+        if (pairData.readyB) {
+          badgeB.textContent = "READY ✓";
+          badgeB.classList.add('ready');
+        } else {
+          badgeB.textContent = "WAITING...";
+          badgeB.classList.remove('ready');
+        }
+
+        const readyBtn = document.getElementById('btnReadyToggle');
+        const isMyReady = (isPlayerA && pairData.readyA) || (!isPlayerA && pairData.readyB);
+        if (isMyReady) {
+          readyBtn.textContent = "READY ✓";
+          readyBtn.disabled = true;
+        }
+
+        if (pairData.movie && !currentMovie) {
+          currentMovie = pairData.movie;
+          if (currentMovie.industry && currentMovie.industry.trim().length >= 5) {
+            lifeLetters = currentMovie.industry.toUpperCase().trim().split('');
+          }
+          renderLifeHUD();
+          buildKeyboard();
+          loadGameBoard();
+        }
+
+        if (pairData.readyA && pairData.readyB && !hasCountStarted && !isGameActive && !battleAlreadyEnded) {
+          hasCountStarted = true;
+          startBattleCountdown();
+        }
+
+        if (!battleAlreadyEnded) {
+          const opponentResult = isPlayerA ? pairData.resultB : pairData.resultA;
+          const myResult = isPlayerA ? pairData.resultA : pairData.resultB;
+
+          if (pairData.winner && pairData.winner !== "") {
+            if (pairData.winner === username) {
+              endMatchInstantly(true, "YOU ARE THE WINNER!", pairData.winner);
+            } else if (pairData.winner === "DRAW") {
+              endMatchInstantly(null, "BOTH PLAYERS OUT OF LIVES! (DRAW)", "DRAW");
+            } else {
+              endMatchInstantly(false, `${pairData.winner} WON THIS MATCH!`, pairData.winner);
+            }
+            return;
+          }
+
+          if (opponentResult && opponentResult.win === true) {
+            const winName = pairData.winner || opponentName;
+            endMatchInstantly(false, `${opponentName} SOLVED THE MOVIE FIRST!`, winName);
+            return;
+          }
+
+          if (opponentResult && opponentResult.win === false && myResult && myResult.win === false) {
+            pairRef.update({ winner: "DRAW", status: 'completed' });
+            endMatchInstantly(null, "BOTH PLAYERS OUT OF LIVES! (DRAW)", "DRAW");
+            return;
+          }
+
+          if (isGameActive && opponentResult && opponentResult.win === false) {
+            showWarning(`${opponentName} IS OUT OF LIVES! SOLVE TO WIN!`);
+          }
+        }
+      });
+    }
+
+    function handleReadyClick() {
+      playClickSound();
+      const updates = {};
+      if (isPlayerA) {
+        updates['readyA'] = true;
+      } else {
+        updates['readyB'] = true;
+      }
+      pairRef.update(updates);
+    }
+
+    function startBattleCountdown() {
+      document.getElementById('readyActionArea').style.display = 'none';
+      const countdownBox = document.getElementById('vsCountdownBox');
+      countdownBox.style.display = 'flex';
+
+      let count = 3;
+      countdownBox.textContent = count;
+      playTone(440, 'sine', 0.1);
+
+      const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countdownBox.textContent = count;
+          playTone(440, 'sine', 0.1);
+        } else if (count === 0) {
+          countdownBox.textContent = "START!";
+          playTone(880, 'sine', 0.25);
+        } else {
+          clearInterval(countInterval);
+          document.getElementById('vsOverlay').classList.add('hidden');
+          isGameActive = true;
+          startLiveTimer();
+          showWarning("BATTLE STARTED! GUESS THE MOVIE!");
+        }
+      }, 1000);
+    }
+
+    function renderLifeHUD() {
+      const cont = document.getElementById('lifeTitleContainer');
+      cont.innerHTML = '';
+      lifeLetters.forEach((char, idx) => {
+        const span = document.createElement('span');
+        span.className = 'life-letter';
+        span.id = `life-char-${idx}`;
+        span.textContent = char;
+        cont.appendChild(span);
+      });
+    }
+
+    function dropLifeLetter() {
+      if (currentLifeIndex < lifeLetters.length) {
+        const targetSpan = document.getElementById(`life-char-${currentLifeIndex}`);
+        if (targetSpan) targetSpan.classList.add('letter-dropped');
+        currentLifeIndex++;
+
+        if (currentLifeIndex >= lifeLetters.length) {
+          handleSelfOutOfLives();
+        }
+      }
+    }
+
+    const KEYBOARD_ROWS = [
+      ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+      ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+      ["Z", "X", "C", "V", "B", "N", "M"]
+    ];
+
+    const NUMBER_ROW = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+
+    function buildKeyboard() {
+      const kb = document.getElementById('keyboardContainer');
+      kb.innerHTML = '';
+
+      // സിനിമയുടെ പേരിൽ നമ്പർ ഉണ്ടോ എന്ന് പരിശോധിക്കുന്നു
+      const hasNumberInTitle = currentMovie && currentMovie.title && /[0-9]/.test(currentMovie.title);
+
+      // നമ്പർ ഉണ്ടെങ്കിൽ മാത്രം നമ്പർ കീബോർഡ് കാണിക്കും
+      if (hasNumberInTitle) {
+        const numRowDiv = document.createElement('div');
+        numRowDiv.className = 'kb-row';
+        NUMBER_ROW.forEach(key => {
+          const btn = document.createElement('button');
+          btn.className = 'key-btn';
+          btn.id = `key-${key}`;
+          btn.textContent = key;
+          btn.onclick = () => handleKeyGuess(key);
+          numRowDiv.appendChild(btn);
+        });
+        kb.appendChild(numRowDiv);
+      }
+
+      KEYBOARD_ROWS.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        row.forEach(key => {
+          const btn = document.createElement('button');
+          btn.className = 'key-btn';
+          btn.id = `key-${key}`;
+          btn.textContent = key;
+          btn.onclick = () => handleKeyGuess(key);
+          rowDiv.appendChild(btn);
+        });
+        kb.appendChild(rowDiv);
+      });
+    }
+
+    function loadGameBoard() {
+      const board = document.getElementById('gameBoard');
+      board.innerHTML = '';
+
+      if (!currentMovie || !currentMovie.title) return;
+
+      const words = currentMovie.title.trim().split(/\s+/);
+      let globalIndex = 0;
+
+      words.forEach((word) => {
+        const wordDiv = document.createElement('div');
+        wordDiv.className = 'word-wrap';
+
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i].toUpperCase();
+          const slot = document.createElement('div');
+          slot.className = 'char-slot';
+
+          if (/^[A-Z0-9]$/.test(char)) {
+            slot.innerHTML = `<span class="char-val" id="slot-${globalIndex}">${char}</span><div class="char-dash"></div>`;
+          } else {
+            slot.classList.add('symbol-slot');
+            slot.innerHTML = `<span class="char-val char-revealed" id="slot-${globalIndex}">${char}</span><div class="char-dash"></div>`;
+          }
+
+          wordDiv.appendChild(slot);
+          globalIndex++;
+        }
+        board.appendChild(wordDiv);
+      });
+    }
+
+    function revealAllBoardLetters() {
+      if (!currentMovie || !currentMovie.title) return;
+      const rawTitle = currentMovie.title.toUpperCase().replace(/\s+/g, '');
+      for (let i = 0; i < rawTitle.length; i++) {
+        const charEl = document.getElementById(`slot-${i}`);
+        if (charEl) {
+          if (!charEl.classList.contains('char-revealed')) {
+            charEl.style.color = '#ffd700';
+            charEl.style.textShadow = '0 0 15px #ffd700';
+            charEl.classList.add('char-revealed');
+          }
+        }
+      }
+    }
+
+    function handleKeyGuess(charInput) {
+      if (!isGameActive || guessedLetters.has(charInput) || battleAlreadyEnded) return;
+      guessedLetters.add(charInput);
+
+      const keyBtn = document.getElementById(`key-${charInput}`);
+      const rawTitle = currentMovie.title.toUpperCase().replace(/\s+/g, '');
+
+      if (rawTitle.includes(charInput)) {
+        playTone(600, 'sine', 0.12, 0.3);
+        if (navigator.vibrate) navigator.vibrate(30);
+
+        if (keyBtn) {
+          keyBtn.disabled = true;
+          keyBtn.classList.add('key-correct');
+        }
+
+        for (let i = 0; i < rawTitle.length; i++) {
+          if (rawTitle[i] === charInput) {
+            const charEl = document.getElementById(`slot-${i}`);
+            if (charEl) charEl.classList.add('char-revealed');
+          }
+        }
+        checkWinCondition();
+      } else {
+        playClickSound();
+        if (navigator.vibrate) navigator.vibrate([50, 40]);
+
+        if (keyBtn) {
+          keyBtn.disabled = true;
+          keyBtn.classList.add('key-dropped');
+        }
+        dropLifeLetter();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (!isGameActive || battleAlreadyEnded) return;
+      const key = e.key.toUpperCase();
+      if (/^[A-Z0-9]$/.test(key)) {
+        handleKeyGuess(key);
+      }
+    });
+
+    function useClue(type) {
+      if (!isGameActive || battleAlreadyEnded) return;
+      if (currentLifeIndex >= lifeLetters.length - 1) {
+        showWarning("LAST LIFE! CLUES LOCKED!");
+        return;
+      }
+
+      playClickSound();
+      const clueBox = document.getElementById('clueDisplayBox');
+      const item = document.createElement('div');
+      item.className = 'clue-item';
+
+      if (type === 'hero') {
+        item.textContent = `Hero: ${currentMovie.hero || 'N/A'}`;
+        document.getElementById('btnClueHero').disabled = true;
+      } else if (type === 'year') {
+        item.textContent = `Year: ${currentMovie.year || 'N/A'}`;
+        document.getElementById('btnClueYear').disabled = true;
+      } else if (type === 'type') {
+        item.textContent = `Genre: ${currentMovie.type || currentMovie.genre || 'N/A'}`;
+        document.getElementById('btnClueType').disabled = true;
+      }
+
+      clueBox.appendChild(item);
+      dropLifeLetter();
+    }
+
+    function startLiveTimer() {
+      battleStartTime = Date.now();
+      timerInterval = setInterval(() => {
+        if (!isGameActive) {
+          clearInterval(timerInterval);
+          return;
+        }
+        const elapsed = Math.floor((Date.now() - battleStartTime) / 1000);
+        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const secs = String(elapsed % 60).padStart(2, '0');
+        document.getElementById('timerBadge').textContent = `⏱ ${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function checkWinCondition() {
+      const rawTitle = currentMovie.title.toUpperCase().replace(/\s+/g, '');
+      let hasWon = true;
+
+      for (let char of rawTitle) {
+        if (/^[A-Z0-9]$/.test(char) && !guessedLetters.has(char)) {
+          hasWon = false;
+          break;
+        }
+      }
+
+      if (hasWon) {
+        const timeTaken = Math.floor((Date.now() - battleStartTime) / 1000);
+        handleSelfWin(timeTaken);
+      }
+    }
+
+    function handleSelfWin(timeTaken) {
+      if (!isGameActive || battleAlreadyEnded) return;
+      isGameActive = false;
+      battleAlreadyEnded = true;
+      clearInterval(timerInterval);
+
+      playSuccessSound();
+
+      const updates = {};
+      if (isPlayerA) {
+        updates['resultA'] = { win: true, time: timeTaken };
+      } else {
+        updates['resultB'] = { win: true, time: timeTaken };
+      }
+      updates['winner'] = username;
+      updates['status'] = 'completed';
+
+      pairRef.update(updates);
+      endMatchInstantly(true, `YOU GUESSED THE MOVIE IN ${timeTaken}s!`, username);
+    }
+
+    function handleSelfOutOfLives() {
+      if (!isGameActive || battleAlreadyEnded) return;
+      isGameActive = false;
+      clearInterval(timerInterval);
+      playFailSound();
+
+      revealAllBoardLetters();
+
+      const updates = {};
+      if (isPlayerA) {
+        updates['resultA'] = { win: false, time: 9999 };
+      } else {
+        updates['resultB'] = { win: false, time: 9999 };
+      }
+      pairRef.update(updates);
+
+      pairRef.once('value', (snap) => {
+        const p = snap.val();
+        const opponentResult = isPlayerA ? p.resultB : p.resultA;
+
+        if (opponentResult && opponentResult.win === false) {
+          pairRef.update({ winner: "DRAW", status: 'completed' });
+          endMatchInstantly(null, "BOTH PLAYERS OUT OF LIVES! (DRAW)", "DRAW");
+        } else {
+          const mTitle = (currentMovie && currentMovie.title) ? currentMovie.title.toUpperCase() : 'UNKNOWN';
+          showWarning(`OUT OF LIVES! MOVIE: ${mTitle}`);
+        }
+      });
+    }
+
+    function redirectToLobby() {
+      if (redirectTimer) clearInterval(redirectTimer);
+      window.location.href = `multiplayer3.html?code=${encodeURIComponent(roomCode)}`;
+    }
+
+    function endMatchInstantly(isWin, message, winnerName) {
+      if (battleAlreadyEnded && document.getElementById('resultModal').classList.contains('show')) {
+        return;
+      }
+      battleAlreadyEnded = true;
+      isGameActive = false;
+      clearInterval(timerInterval);
+
+      revealAllBoardLetters();
+
+      document.querySelectorAll('.key-btn').forEach(btn => btn.disabled = true);
+      document.querySelectorAll('.btn-clue').forEach(btn => btn.disabled = true);
+
+      const modal = document.getElementById('resultModal');
+      const titleEl = document.getElementById('resModalTitle');
+      const infoEl = document.getElementById('resModalInfo');
+      const movieTitleEl = document.getElementById('resModalMovieTitle');
+
+      if (currentMovie && currentMovie.title) {
+        movieTitleEl.textContent = currentMovie.title.toUpperCase();
+      } else {
+        movieTitleEl.textContent = 'UNKNOWN';
+      }
+
+      if (isWin === true) {
+        titleEl.textContent = "VICTORY!";
+        titleEl.className = "result-title win";
+      } else if (isWin === false) {
+        titleEl.textContent = "DEFEAT!";
+        titleEl.className = "result-title lose";
+      } else {
+        titleEl.textContent = "DRAW!";
+        titleEl.className = "result-title draw";
+      }
+
+      infoEl.innerHTML = `${message}<br><span style="color: #00f0ff; letter-spacing: 1px; font-weight: bold;">RESULT: ${winnerName}</span>`;
+      modal.classList.add('show');
+
+      redirectSeconds = 4;
+      const countSpan = document.getElementById('redirectCountdown');
+      if (countSpan) countSpan.textContent = redirectSeconds;
+
+      if (redirectTimer) clearInterval(redirectTimer);
+      redirectTimer = setInterval(() => {
+        redirectSeconds--;
+        if (countSpan) countSpan.textContent = redirectSeconds;
+        if (redirectSeconds <= 0) {
+          clearInterval(redirectTimer);
+          redirectToLobby();
+        }
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

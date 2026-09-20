@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>XOLLYWOOD - Room Host</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #ffffff;
+      touch-action: none;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #spaceCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Left Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    }
+
+    .game-warning-banner {
+      position: fixed;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 20, 40, 0.95);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      z-index: 150;
+      transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      text-align: center;
+      width: 90%;
+      max-width: 420px;
+    }
+
+    .game-warning-banner.show {
+      top: 20px;
+    }
+
+    .header-bar {
+      text-align: center;
+      margin-bottom: 20px;
+      z-index: 10;
+    }
+
+    .main-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(2rem, 7vw, 3.4rem);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 0%, #c2d5e2 50%, #8ba6bc 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 15px rgba(0, 240, 255, 0.8));
+    }
+
+    .room-display-row {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 10px;
+      background: transparent;
+    }
+
+    .room-label {
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      color: rgba(0, 240, 255, 0.8);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .room-code-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.7rem;
+      font-weight: 800;
+      letter-spacing: 6px;
+      color: #ffffff;
+      text-shadow: 0 0 14px #00f0ff;
+    }
+
+    .btn-copy {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      padding: 5px 12px;
+      border-radius: 14px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: all 0.25s ease;
+    }
+
+    .btn-copy:hover {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      box-shadow: 0 0 12px #00f0ff;
+    }
+
+    .status-alert {
+      margin-top: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #ffcc00;
+      text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+      font-weight: 700;
+    }
+
+    .status-ready {
+      color: #00ffaa !important;
+      text-shadow: 0 0 12px #00ffaa !important;
+    }
+
+    .create-card {
+      width: 100%;
+      max-width: 480px;
+      background: transparent;
+      padding: 10px 0;
+      z-index: 10;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      color: rgba(0, 240, 255, 0.85);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 20, 35, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      padding: 11px 14px;
+      border-radius: 10px;
+      color: #ffffff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 600;
+      outline: none;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      transition: all 0.25s ease;
+    }
+
+    .input-field:focus {
+      border-color: #00f0ff;
+      background: rgba(0, 240, 255, 0.08);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.4);
+    }
+
+    .clue-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 10px;
+    }
+
+    .btn-start {
+      width: 100%;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1.5px solid #00f0ff;
+      color: #ffffff;
+      padding: 13px;
+      border-radius: 12px;
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: 1.05rem;
+      letter-spacing: 5px;
+      cursor: pointer;
+      margin-top: 15px;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .btn-start:disabled {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.02);
+      text-shadow: none;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 25px #00f0ff;
+      transform: translateY(-2px);
+    }
+
+    .spectator-view {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .gameplay-zone {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+    }
+
+    .hud-top {
+      position: absolute;
+      top: 18px;
+      left: 0;
+      width: 100%;
+      padding: 0 20px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+      z-index: 30;
+    }
+
+    .industry-life-title {
+      display: flex;
+      gap: clamp(4px, 1.2vw, 10px);
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .life-letter {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(1.4rem, 4.5vw, 2.4rem);
+      color: #ffffff;
+      display: inline-block;
+      text-shadow: 0 0 12px #00f0ff, 0 0 24px rgba(0, 240, 255, 0.6);
+      transition: transform 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19), opacity 0.5s ease;
+    }
+
+    .letter-dropped {
+      transform: translateY(140px) rotate(28deg) scale(0.4) !important;
+      opacity: 0 !important;
+      color: #ff0055 !important;
+      text-shadow: 0 0 20px #ff0055 !important;
+    }
+
+    .clue-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      max-width: 250px;
+    }
+
+    .clue-header {
+      font-size: 0.72rem;
+      letter-spacing: 4px;
+      color: rgba(0, 240, 255, 0.85);
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .clue-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-clue {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #ffffff;
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      cursor: pointer;
+    }
+
+    .btn-clue:disabled {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.3);
+      cursor: default;
+    }
+
+    .clue-display-box {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+    }
+
+    .clue-item {
+      font-size: 0.74rem;
+      letter-spacing: 1.5px;
+      color: #00f0ff;
+      text-shadow: 0 0 10px #00f0ff;
+      text-transform: uppercase;
+      text-align: right;
+      animation: fadeInClue 0.3s ease-out forwards;
+    }
+
+    @keyframes fadeInClue {
+      0% { opacity: 0; transform: translateY(-4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .game-board {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(8px, 2vw, 16px);
+      width: 90%;
+      max-width: 750px;
+      z-index: 20;
+    }
+
+    .char-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: clamp(28px, 6.5vw, 48px);
+    }
+
+    .char-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.6rem, 5.5vw, 2.6rem);
+      color: #ffffff;
+      text-shadow: 0 0 16px #00f0ff;
+      min-height: 45px;
+      opacity: 0;
+      transform: scale(0.3);
+      transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .char-revealed {
+      opacity: 1 !important;
+      transform: scale(1) !important;
+    }
+
+    .char-dash {
+      width: 100%;
+      height: 3px;
+      background: #00f0ff;
+      box-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff;
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    .keyboard-container {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 95%;
+      max-width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 25;
+    }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .key-btn {
+      background: rgba(0, 240, 255, 0.04);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #00f0ff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.95rem, 3.2vw, 1.25rem);
+      font-weight: 700;
+      width: clamp(28px, 8.2vw, 48px);
+      height: clamp(40px, 9.5vw, 52px);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .key-btn:disabled {
+      pointer-events: none;
+    }
+
+    .key-correct {
+      background: rgba(0, 255, 170, 0.2) !important;
+      border-color: #00ffaa !important;
+      color: #00ffaa !important;
+      box-shadow: 0 0 15px #00ffaa !important;
+      opacity: 0.5;
+    }
+
+    .key-dropped {
+      animation: completeKeyDrop 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards !important;
+      pointer-events: none !important;
+    }
+
+    @keyframes completeKeyDrop {
+      0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+      30% { transform: translateY(20px) rotate(5deg); color: #ff0055; border-color: #ff0055; box-shadow: 0 0 15px #ff0055; }
+      100% { transform: translateY(120px) rotate(25deg); opacity: 0; visibility: hidden; }
+    }
+
+    .game-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      backdrop-filter: blur(10px);
+      padding: 20px;
+    }
+
+    .game-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(2.2rem, 8vw, 3.8rem);
+      font-weight: 900;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .win-title {
+      color: #00f0ff;
+      text-shadow: 0 0 25px #00f0ff;
+    }
+
+    .lose-title {
+      color: #ff0055;
+      text-shadow: 0 0 25px #ff0055;
+    }
+
+    .modal-movie-reveal {
+      font-size: 1.05rem;
+      letter-spacing: 4px;
+      color: #ffffff;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    /* Score Display Badge */
+    .modal-score-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 20px;
+      border-radius: 20px;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1.5px solid #00f0ff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #ffffff;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+    }
+
+    .modal-btn-row {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .btn-modal {
+      background: transparent;
+      border: 1.5px solid #00f0ff;
+      color: #ffffff;
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: 0.95rem;
+      letter-spacing: 5px;
+      padding: 12px 20px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+      transition: all 0.25s ease;
+      text-align: center;
+    }
+
+    .btn-modal:hover {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 25px #00f0ff;
+    }
+
+    .btn-give-flag {
+      border-color: #ffcc00;
+      color: #ffcc00;
+      box-shadow: 0 0 15px rgba(255, 204, 0, 0.3);
+    }
+
+    .btn-give-flag:hover {
+      background: #ffcc00;
+      color: #000000;
+      box-shadow: 0 0 25px #ffcc00;
+    }
+
+    .flag-wait-box {
+      display: none;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      margin-top: 40px;
+      z-index: 10;
+    }
+
+    .flag-wait-pill {
+      font-size: 0.9rem;
+      letter-spacing: 3px;
+      color: #ffcc00;
+      text-transform: uppercase;
+      padding: 12px 24px;
+      border-radius: 30px;
+      background: rgba(255, 204, 0, 0.1);
+      border: 1.5px solid rgba(255, 204, 0, 0.5);
+      box-shadow: 0 0 20px rgba(255, 204, 0, 0.3);
+    }
+
+    .flag-request-card {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 200;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .flag-req-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 1.6rem;
+      letter-spacing: 4px;
+      color: #ffcc00;
+      text-shadow: 0 0 15px #ffcc00;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .flag-req-actions {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .btn-accept-flag {
+      flex: 1;
+      background: #00ffaa;
+      color: #000;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      padding: 12px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 2px;
+    }
+
+    .btn-decline-flag {
+      flex: 1;
+      background: rgba(255, 0, 85, 0.2);
+      border: 1px solid #ff0055;
+      color: #ff0055;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      padding: 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      letter-spacing: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Top Left Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="game-warning-banner" id="warningBanner">ENTER THE MOVIE DETAILS</div>
+
+    <!-- Header -->
+    <div class="header-bar" id="headerBar">
+      <h1 class="main-title">XOLLYWOOD</h1>
+      <div class="room-display-row">
+        <span class="room-label">ROOM CODE:</span>
+        <span class="room-code-val" id="roomCodeDisplay">----</span>
+        <button type="button" class="btn-copy" id="btnCopyCode" onclick="copyRoomCode()">COPY</button>
+      </div>
+      <div class="status-alert" id="statusAlert">Waiting for friend to join...</div>
+    </div>
+
+    <!-- 1. Creator Setup Form -->
+    <div class="create-card" id="setupCard">
+      <div class="form-group">
+        <label class="form-label">Secret Movie Name</label>
+        <input type="text" class="input-field" id="movieInput" placeholder="e.g. SPADIKAM" autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Clue 1 (Type & Clue)</label>
+        <div class="clue-row">
+          <input type="text" class="input-field" id="c1Type" value="HERO" />
+          <input type="text" class="input-field" id="c1Val" placeholder="e.g. Mohanlal" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Clue 2 (Type & Clue)</label>
+        <div class="clue-row">
+          <input type="text" class="input-field" id="c2Type" value="YEAR" />
+          <input type="text" class="input-field" id="c2Val" placeholder="e.g. 1995" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Clue 3 (Type & Clue)</label>
+        <div class="clue-row">
+          <input type="text" class="input-field" id="c3Type" value="TYPE" />
+          <input type="text" class="input-field" id="c3Val" placeholder="e.g. Action Drama" />
+        </div>
+      </div>
+
+      <button type="button" class="btn-start" id="btnStart" disabled onclick="startMatch()">START GAME</button>
+    </div>
+
+    <!-- 2. Waiting Box -->
+    <div class="flag-wait-box" id="flagWaitBox">
+      <div class="flag-wait-pill">WAITING FOR FRIEND TO SET MOVIE...</div>
+    </div>
+
+    <!-- 3. Live Spectator Dashboard -->
+    <div class="spectator-view" id="spectatorView">
+      <div class="hud-top">
+        <div class="industry-life-title" id="specLifeContainer"></div>
+        <div class="clue-panel">
+          <span class="clue-header">CLUES</span>
+          <div class="clue-btn-row">
+            <button type="button" class="btn-clue" id="specBtnC1" disabled>CLUE 1</button>
+            <button type="button" class="btn-clue" id="specBtnC2" disabled>CLUE 2</button>
+            <button type="button" class="btn-clue" id="specBtnC3" disabled>CLUE 3</button>
+          </div>
+          <div class="clue-display-box" id="specClueDisplayBox"></div>
+        </div>
+      </div>
+
+      <div class="game-board" id="specGameBoard"></div>
+      <div class="keyboard-container" id="specKeyboardContainer"></div>
+    </div>
+
+    <!-- 4. Active Guesser Dashboard -->
+    <div class="gameplay-zone" id="gameplayZone">
+      <div class="hud-top">
+        <div class="industry-life-title" id="playLifeContainer"></div>
+        <div class="clue-panel">
+          <span class="clue-header">CLUES</span>
+          <div class="clue-btn-row">
+            <button type="button" class="btn-clue" id="playBtnC1" onclick="usePlayClue('c1')">CLUE 1</button>
+            <button type="button" class="btn-clue" id="playBtnC2" onclick="usePlayClue('c2')">CLUE 2</button>
+            <button type="button" class="btn-clue" id="playBtnC3" onclick="usePlayClue('c3')">CLUE 3</button>
+          </div>
+          <div class="clue-display-box" id="playClueDisplayBox"></div>
+        </div>
+      </div>
+
+      <div class="game-board" id="playGameBoard"></div>
+      <div class="keyboard-container" id="playKeyboardContainer"></div>
+    </div>
+
+    <!-- Round Result Modal -->
+    <div class="game-modal" id="gameModal">
+      <h1 class="modal-title" id="modalTitle"></h1>
+      <p class="modal-movie-reveal" id="modalMovieReveal"></p>
+      
+      <!-- Score Display -->
+      <div class="modal-score-badge" id="modalScoreDisplay">YOU: 0 | FRIEND: 0</div>
+
+      <div class="modal-btn-row" id="modalBtnRow">
+        <button type="button" class="btn-modal" onclick="resetSameHost()">PLAY AGAIN</button>
+        <button type="button" class="btn-modal btn-give-flag" onclick="requestPassFlag()">GIVE FLAG TO FRIEND</button>
+      </div>
+    </div>
+
+    <!-- Flag Request Prompt -->
+    <div class="flag-request-card" id="flagRequestModal">
+      <div class="flag-req-title">FRIEND WANTS TO PASS THE FLAG TO YOU!</div>
+      <div class="flag-req-actions">
+        <button class="btn-accept-flag" onclick="acceptIncomingFlag()">ACCEPT</button>
+        <button class="btn-decline-flag" onclick="declineIncomingFlag()">DECLINE</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const dustParticles = [];
+    for (let i = 0; i < 70; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.5 + 0.5,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: (Math.random() - 0.5) * 0.35,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    let animTime = 0;
+    function render() {
+      animTime += 0.02;
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+        const twinkle = p.alpha * (0.5 + Math.sin(animTime * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+
+    // --- Audio Control Engine ---
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA0DSuRVDcIbNZvN8ccxUPA4vx2o2HIVQ0",
+      authDomain: "xollywood-bbec9.firebaseapp.com",
+      databaseURL: "https://xollywood-bbec9-default-rtdb.firebaseio.com",
+      projectId: "xollywood-bbec9",
+      storageBucket: "xollywood-bbec9.firebasestorage.app",
+      messagingSenderId: "164085619380",
+      appId: "1:164085619380:web:84b399a72cdcbfb26d5e1",
+      measurementId: "G-7DLXQ781CM"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const roomCode = Math.floor(1000 + Math.random() * 9000).toString();
+    document.getElementById('roomCodeDisplay').textContent = roomCode;
+
+    const roomRef = db.ref('rooms/' + roomCode);
+
+    const LIFE_WORD = "XOLLYWOOD";
+    let lifeLetters = LIFE_WORD.split('');
+    let currentRoomData = null;
+    let guessedLetters = new Set();
+    let currentLifeIndex = 0;
+    let isGuesserGameOver = false;
+    let activeRoundKey = "";
+
+    roomRef.set({
+      host: 'online',
+      guest: 'waiting',
+      flagHolder: 'host',
+      flagRequest: 'none',
+      state: 'setup',
+      movie: '',
+      roundId: '',
+      clues: {},
+      guessedLetters: [],
+      livesLeft: 9,
+      usedClues: { c1: false, c2: false, c3: false },
+      scores: { host: 0, guest: 0 }
+    });
+
+    window.addEventListener('beforeunload', () => {
+      roomRef.remove();
+    });
+
+    function copyRoomCode() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      navigator.clipboard.writeText(roomCode).then(() => {
+        const btn = document.getElementById('btnCopyCode');
+        btn.textContent = 'COPIED!';
+        btn.style.borderColor = '#00ffaa';
+        btn.style.color = '#00ffaa';
+        if (navigator.vibrate) navigator.vibrate(30);
+
+        setTimeout(() => {
+          btn.textContent = 'COPY';
+          btn.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+          btn.style.color = '#00f0ff';
+        }, 1800);
+      });
+    }
+
+    function showGameWarning(text) {
+      const banner = document.getElementById('warningBanner');
+      banner.textContent = text;
+      banner.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([60, 40]);
+
+      setTimeout(() => {
+        banner.classList.remove('show');
+      }, 2500);
+    }
+
+    roomRef.on('value', (snapshot) => {
+      currentRoomData = snapshot.val();
+      if (!currentRoomData) return;
+
+      if (currentRoomData.guest === 'joined' && currentRoomData.state === 'setup' && currentRoomData.flagHolder === 'host') {
+        const alertEl = document.getElementById('statusAlert');
+        alertEl.textContent = 'FRIEND JOINED! ENTER MOVIE & START';
+        alertEl.classList.add('status-ready');
+        document.getElementById('btnStart').disabled = false;
+      }
+
+      if (currentRoomData.state === 'setup' && currentRoomData.flagHolder === 'host') {
+        document.getElementById('headerBar').style.display = 'block';
+        document.getElementById('setupCard').style.display = 'block';
+        document.getElementById('flagWaitBox').style.display = 'none';
+        document.getElementById('spectatorView').style.display = 'none';
+        document.getElementById('gameplayZone').style.display = 'none';
+        document.getElementById('gameModal').classList.remove('active');
+        document.getElementById('flagRequestModal').style.display = 'none';
+        activeRoundKey = "";
+      }
+
+      if (currentRoomData.state === 'setup' && currentRoomData.flagHolder === 'guest') {
+        document.getElementById('headerBar').style.display = 'block';
+        document.getElementById('setupCard').style.display = 'none';
+        document.getElementById('flagWaitBox').style.display = 'block';
+        document.getElementById('spectatorView').style.display = 'none';
+        document.getElementById('gameplayZone').style.display = 'none';
+        document.getElementById('gameModal').classList.remove('active');
+        document.getElementById('flagRequestModal').style.display = 'none';
+        activeRoundKey = "";
+      }
+
+      if (currentRoomData.state === 'playing') {
+        document.getElementById('headerBar').style.display = 'none';
+        document.getElementById('setupCard').style.display = 'none';
+        document.getElementById('flagWaitBox').style.display = 'none';
+        document.getElementById('gameModal').classList.remove('active');
+
+        if (currentRoomData.flagHolder === 'host') {
+          document.getElementById('gameplayZone').style.display = 'none';
+          document.getElementById('spectatorView').style.display = 'block';
+
+          if (activeRoundKey !== currentRoomData.roundId) {
+            activeRoundKey = currentRoomData.roundId;
+            initFreshSpectatorView();
+          }
+          renderLiveMirrorGameplay();
+        } else {
+          document.getElementById('spectatorView').style.display = 'none';
+          document.getElementById('gameplayZone').style.display = 'block';
+
+          if (activeRoundKey !== currentRoomData.roundId) {
+            activeRoundKey = currentRoomData.roundId;
+            initHostGuesserMode();
+          }
+        }
+      }
+
+      if (currentRoomData.flagRequest === 'pending_to_host') {
+        document.getElementById('flagRequestModal').style.display = 'flex';
+      } else {
+        document.getElementById('flagRequestModal').style.display = 'none';
+      }
+
+      if (currentRoomData.state === 'round_over') {
+        handleRoundEndModal();
+      }
+    });
+
+    function startMatch() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      const movie = document.getElementById('movieInput').value.trim().toUpperCase();
+      const c1Val = document.getElementById('c1Val').value.trim();
+      const c2Val = document.getElementById('c2Val').value.trim();
+      const c3Val = document.getElementById('c3Val').value.trim();
+
+      if (!movie || !c1Val || !c2Val || !c3Val) {
+        showGameWarning("ENTER THE MOVIE DETAILS");
+        return;
+      }
+
+      const c1Type = document.getElementById('c1Type').value.trim() || 'HERO';
+      const c2Type = document.getElementById('c2Type').value.trim() || 'YEAR';
+      const c3Type = document.getElementById('c3Type').value.trim() || 'TYPE';
+
+      roomRef.update({
+        movie: movie,
+        roundId: Date.now().toString(),
+        clues: {
+          c1: { type: c1Type, val: c1Val },
+          c2: { type: c2Type, val: c2Val },
+          c3: { type: c3Type, val: c3Val }
+        },
+        state: 'playing',
+        guessedLetters: [],
+        livesLeft: 9,
+        usedClues: { c1: false, c2: false, c3: false },
+        winner: 'none'
+      });
+
+      if (navigator.vibrate) navigator.vibrate(40);
+    }
+
+    function initFreshSpectatorView() {
+      renderSpecHUD();
+      document.getElementById('specClueDisplayBox').innerHTML = '';
+      document.getElementById('specBtnC1').disabled = false;
+      document.getElementById('specBtnC2').disabled = false;
+      document.getElementById('specBtnC3').disabled = false;
+
+      if (currentRoomData.clues) {
+        document.getElementById('specBtnC1').textContent = currentRoomData.clues.c1?.type || 'CLUE 1';
+        document.getElementById('specBtnC2').textContent = currentRoomData.clues.c2?.type || 'CLUE 2';
+        document.getElementById('specBtnC3').textContent = currentRoomData.clues.c3?.type || 'CLUE 3';
+      }
+
+      const movie = (currentRoomData.movie || "").toUpperCase();
+      const containsDigits = /\d/.test(movie);
+      buildSpecKeyboard(containsDigits);
+
+      const board = document.getElementById('specGameBoard');
+      board.innerHTML = '';
+      for (let i = 0; i < movie.length; i++) {
+        const char = movie[i];
+        const slot = document.createElement('div');
+        slot.className = 'char-slot';
+
+        if (char === ' ') {
+          slot.style.width = '18px';
+          slot.innerHTML = '<span class="char-val">&nbsp;</span>';
+        } else {
+          slot.innerHTML = `
+            <span class="char-val" id="spec-slot-${i}">${char}</span>
+            <div class="char-dash"></div>
+          `;
+        }
+        board.appendChild(slot);
+      }
+    }
+
+    function renderSpecHUD() {
+      const cont = document.getElementById('specLifeContainer');
+      cont.innerHTML = '';
+      lifeLetters.forEach((char, idx) => {
+        const span = document.createElement('span');
+        span.className = 'life-letter';
+        span.id = `spec-life-${idx}`;
+        span.textContent = char;
+        cont.appendChild(span);
+      });
+    }
+
+    const KEYBOARD_ROWS_BASE = [
+      ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+      ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+      ["Z", "X", "C", "V", "B", "N", "M"]
+    ];
+    const NUMBER_ROW = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+    function buildSpecKeyboard(hasNumbers) {
+      const kb = document.getElementById('specKeyboardContainer');
+      kb.innerHTML = '';
+      const rows = hasNumbers ? [NUMBER_ROW, ...KEYBOARD_ROWS_BASE] : KEYBOARD_ROWS_BASE;
+
+      rows.forEach(r => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        r.forEach(k => {
+          const btn = document.createElement('div');
+          btn.className = 'key-btn';
+          btn.id = `spec-key-${k}`;
+          btn.textContent = k;
+          rowDiv.appendChild(btn);
+        });
+        kb.appendChild(rowDiv);
+      });
+    }
+
+    function renderLiveMirrorGameplay() {
+      const movie = (currentRoomData.movie || "").toUpperCase();
+      const guessed = currentRoomData.guessedLetters || [];
+      const livesLeft = currentRoomData.livesLeft !== undefined ? currentRoomData.livesLeft : 9;
+
+      const droppedCount = 9 - livesLeft;
+      for (let i = 0; i < 9; i++) {
+        const el = document.getElementById(`spec-life-${i}`);
+        if (el) {
+          if (i < droppedCount) {
+            el.classList.add('letter-dropped');
+          } else {
+            el.classList.remove('letter-dropped');
+          }
+        }
+      }
+
+      const cBox = document.getElementById('specClueDisplayBox');
+      cBox.innerHTML = '';
+      if (currentRoomData.usedClues?.c1) {
+        cBox.innerHTML += `<div class="clue-item">${currentRoomData.clues.c1.type}: ${currentRoomData.clues.c1.val}</div>`;
+        document.getElementById('specBtnC1').disabled = true;
+      }
+      if (currentRoomData.usedClues?.c2) {
+        cBox.innerHTML += `<div class="clue-item">${currentRoomData.clues.c2.type}: ${currentRoomData.clues.c2.val}</div>`;
+        document.getElementById('specBtnC2').disabled = true;
+      }
+      if (currentRoomData.usedClues?.c3) {
+        cBox.innerHTML += `<div class="clue-item">${currentRoomData.clues.c3.type}: ${currentRoomData.clues.c3.val}</div>`;
+        document.getElementById('specBtnC3').disabled = true;
+      }
+
+      for (let i = 0; i < movie.length; i++) {
+        const char = movie[i];
+        if (char !== ' ') {
+          const slotEl = document.getElementById(`spec-slot-${i}`);
+          if (slotEl) {
+            if (guessed.includes(char)) {
+              slotEl.classList.add('char-revealed');
+            } else {
+              slotEl.classList.remove('char-revealed');
+            }
+          }
+        }
+      }
+
+      guessed.forEach(char => {
+        const keyEl = document.getElementById(`spec-key-${char}`);
+        if (keyEl) {
+          if (movie.includes(char)) {
+            keyEl.classList.add('key-correct');
+          } else {
+            keyEl.classList.add('key-dropped');
+          }
+        }
+      });
+    }
+
+    function initHostGuesserMode() {
+      guessedLetters.clear();
+      isGuesserGameOver = false;
+      currentLifeIndex = 0;
+
+      const cont = document.getElementById('playLifeContainer');
+      cont.innerHTML = '';
+      lifeLetters.forEach((char, idx) => {
+        const span = document.createElement('span');
+        span.className = 'life-letter';
+        span.id = `play-life-${idx}`;
+        span.textContent = char;
+        cont.appendChild(span);
+      });
+
+      if (currentRoomData.clues) {
+        document.getElementById('playBtnC1').textContent = currentRoomData.clues.c1?.type || 'CLUE 1';
+        document.getElementById('playBtnC2').textContent = currentRoomData.clues.c2?.type || 'CLUE 2';
+        document.getElementById('playBtnC3').textContent = currentRoomData.clues.c3?.type || 'CLUE 3';
+      }
+
+      ['playBtnC1', 'playBtnC2', 'playBtnC3'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
+      });
+
+      document.getElementById('playClueDisplayBox').innerHTML = '';
+
+      const movieTitle = (currentRoomData.movie || "").toUpperCase();
+      const containsDigits = /\d/.test(movieTitle);
+
+      const kb = document.getElementById('playKeyboardContainer');
+      kb.innerHTML = '';
+      const rows = containsDigits ? [NUMBER_ROW, ...KEYBOARD_ROWS_BASE] : KEYBOARD_ROWS_BASE;
+
+      rows.forEach(r => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        r.forEach(k => {
+          const btn = document.createElement('button');
+          btn.className = 'key-btn';
+          btn.id = `play-key-${k}`;
+          btn.textContent = k;
+          btn.onclick = () => handlePlayKeyGuess(k);
+          rowDiv.appendChild(btn);
+        });
+        kb.appendChild(rowDiv);
+      });
+
+      const board = document.getElementById('playGameBoard');
+      board.innerHTML = '';
+      for (let i = 0; i < movieTitle.length; i++) {
+        const char = movieTitle[i];
+        const slot = document.createElement('div');
+        slot.className = 'char-slot';
+
+        if (char === ' ') {
+          slot.style.width = '18px';
+          slot.innerHTML = '<span class="char-val">&nbsp;</span>';
+        } else {
+          slot.innerHTML = `
+            <span class="char-val" id="play-slot-${i}">${char}</span>
+            <div class="char-dash"></div>
+          `;
+        }
+        board.appendChild(slot);
+      }
+    }
+
+    function handlePlayKeyGuess(charInput) {
+      if (isGuesserGameOver || guessedLetters.has(charInput)) return;
+      guessedLetters.add(charInput);
+
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+
+      const keyBtn = document.getElementById(`play-key-${charInput}`);
+      const upperTitle = (currentRoomData.movie || "").toUpperCase();
+
+      const currentList = currentRoomData.guessedLetters || [];
+      if (!currentList.includes(charInput)) {
+        currentList.push(charInput);
+        roomRef.update({ guessedLetters: currentList });
+      }
+
+      if (upperTitle.includes(charInput)) {
+        if (navigator.vibrate) navigator.vibrate(30);
+        if (keyBtn) {
+          keyBtn.disabled = true;
+          keyBtn.classList.add('key-correct');
+        }
+        for (let i = 0; i < upperTitle.length; i++) {
+          if (upperTitle[i] === charInput) {
+            const charEl = document.getElementById(`play-slot-${i}`);
+            if (charEl) charEl.classList.add('char-revealed');
+          }
+        }
+        checkPlayWinCondition();
+      } else {
+        if (navigator.vibrate) navigator.vibrate([60, 40]);
+        if (keyBtn) {
+          keyBtn.classList.add('key-dropped');
+          keyBtn.disabled = true;
+        }
+        dropPlayLifeLetter();
+      }
+    }
+
+    function dropPlayLifeLetter() {
+      if (currentLifeIndex < lifeLetters.length) {
+        const targetSpan = document.getElementById(`play-life-${currentLifeIndex}`);
+        if (targetSpan) {
+          targetSpan.classList.add('letter-dropped');
+        }
+        currentLifeIndex++;
+        roomRef.update({ livesLeft: lifeLetters.length - currentLifeIndex });
+
+        if (currentLifeIndex >= lifeLetters.length) {
+          isGuesserGameOver = true;
+          const sc = currentRoomData.scores || { host: 0, guest: 0 };
+          sc.guest = (sc.guest || 0) + 1;
+          roomRef.update({ state: 'round_over', winner: 'creator', scores: sc });
+        }
+      }
+    }
+
+    function usePlayClue(clueKey) {
+      if (isGuesserGameOver) return;
+      const clue = currentRoomData.clues?.[clueKey];
+      if (!clue) return;
+
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+
+      const clueItem = document.createElement('div');
+      clueItem.className = 'clue-item';
+      clueItem.textContent = `${clue.type}: ${clue.val}`;
+      document.getElementById('playClueDisplayBox').appendChild(clueItem);
+
+      const btnId = clueKey === 'c1' ? 'playBtnC1' : clueKey === 'c2' ? 'playBtnC2' : 'playBtnC3';
+      document.getElementById(btnId).disabled = true;
+
+      const usedCluesUpdate = currentRoomData.usedClues || {};
+      usedCluesUpdate[clueKey] = true;
+      roomRef.update({ usedClues: usedCluesUpdate });
+
+      dropPlayLifeLetter();
+    }
+
+    function checkPlayWinCondition() {
+      const upperTitle = (currentRoomData.movie || "").toUpperCase().replace(/\s/g, '');
+      let hasWon = true;
+      for (let char of upperTitle) {
+        if (!guessedLetters.has(char)) {
+          hasWon = false;
+          break;
+        }
+      }
+      if (hasWon) {
+        isGuesserGameOver = true;
+        const sc = currentRoomData.scores || { host: 0, guest: 0 };
+        sc.host = (sc.host || 0) + 1;
+        roomRef.update({ state: 'round_over', winner: 'guesser', scores: sc });
+      }
+    }
+
+    function handleRoundEndModal() {
+      const modal = document.getElementById('gameModal');
+      const title = document.getElementById('modalTitle');
+      const reveal = document.getElementById('modalMovieReveal');
+      const btnRow = document.getElementById('modalBtnRow');
+      const scoreBadge = document.getElementById('modalScoreDisplay');
+
+      modal.classList.add('active');
+
+      const isCurrentCreator = (currentRoomData.flagHolder === 'host');
+      const guesserWon = (currentRoomData.winner === 'guesser');
+
+      const myScore = currentRoomData.scores?.host || 0;
+      const friendScore = currentRoomData.scores?.guest || 0;
+      scoreBadge.textContent = `YOU: ${myScore} | FRIEND: ${friendScore}`;
+
+      if (isCurrentCreator) {
+        btnRow.style.display = 'flex';
+        if (guesserWon) {
+          title.className = 'modal-title lose-title';
+          title.textContent = 'YOU LOST!';
+          reveal.textContent = `Friend guessed: ${currentRoomData.movie}`;
+        } else {
+          title.className = 'modal-title win-title';
+          title.textContent = 'YOU WON!';
+          reveal.textContent = `Friend failed to guess: ${currentRoomData.movie}`;
+        }
+      } else {
+        btnRow.style.display = 'none';
+        if (guesserWon) {
+          title.className = 'modal-title win-title';
+          title.textContent = 'YOU WON!';
+          reveal.textContent = `You guessed: ${currentRoomData.movie}`;
+        } else {
+          title.className = 'modal-title lose-title';
+          title.textContent = 'YOU LOST!';
+          reveal.textContent = `Correct Movie: ${currentRoomData.movie}`;
+        }
+      }
+    }
+
+    function resetSameHost() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      document.getElementById('movieInput').value = '';
+      document.getElementById('c1Val').value = '';
+      document.getElementById('c2Val').value = '';
+      document.getElementById('c3Val').value = '';
+
+      roomRef.update({
+        state: 'setup',
+        movie: '',
+        roundId: '',
+        clues: {},
+        guessedLetters: [],
+        livesLeft: 9,
+        usedClues: { c1: false, c2: false, c3: false },
+        winner: 'none'
+      });
+    }
+
+    function requestPassFlag() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      document.getElementById('gameModal').classList.remove('active');
+      roomRef.update({ flagRequest: 'pending_to_guest' });
+    }
+
+    function acceptIncomingFlag() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      document.getElementById('flagRequestModal').style.display = 'none';
+      roomRef.update({
+        flagHolder: 'host',
+        flagRequest: 'none',
+        state: 'setup',
+        movie: '',
+        roundId: '',
+        clues: {},
+        guessedLetters: [],
+        livesLeft: 9,
+        usedClues: { c1: false, c2: false, c3: false },
+        winner: 'none'
+      });
+    }
+
+    function declineIncomingFlag() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      document.getElementById('flagRequestModal').style.display = 'none';
+      roomRef.update({ flagRequest: 'none' });
+    }
+  </script>
+</body>
+</html>

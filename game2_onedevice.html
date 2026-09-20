@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>XOLLYWOOD - One Device Mode</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #ffffff;
+      touch-action: manipulation;
+    }
+
+    /* Strict Mobile Viewport Fix */
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: clamp(10px, 2vh, 16px) clamp(8px, 2vw, 12px);
+      padding-top: max(clamp(10px, 2vh, 16px), env(safe-area-inset-top));
+      padding-bottom: max(clamp(10px, 2vh, 16px), env(safe-area-inset-bottom));
+    }
+
+    #spaceCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Left Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: max(10px, env(safe-area-inset-left));
+      z-index: 100;
+      display: flex;
+      gap: 6px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.7);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.8rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 12px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
+    }
+
+    .game-warning-banner {
+      position: fixed;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 20, 40, 0.95);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 18px rgba(0, 240, 255, 0.6);
+      z-index: 150;
+      transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      text-align: center;
+      width: 90%;
+      max-width: 380px;
+    }
+
+    .game-warning-banner.show {
+      top: max(12px, env(safe-area-inset-top));
+    }
+
+    /* 1. Player 1 Setup Screen */
+    .setup-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+      z-index: 20;
+      overflow-y: auto;
+    }
+
+    .main-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(1.8rem, 6vw, 2.8rem);
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #ffffff 0%, #c2d5e2 50%, #8ba6bc 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.8));
+      text-align: center;
+      margin-top: clamp(10px, 3vh, 25px);
+      margin-bottom: clamp(10px, 2.5vh, 18px);
+    }
+
+    .form-wrapper {
+      width: 100%;
+      max-width: 420px;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(8px, 1.8vh, 14px);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 1.5px;
+      color: rgba(0, 240, 255, 0.85);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .input-field {
+      width: 100%;
+      background: rgba(0, 20, 35, 0.65);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      padding: 9px 12px;
+      border-radius: 8px;
+      color: #ffffff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+      font-weight: 600;
+      outline: none;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+      transition: all 0.25s ease;
+    }
+
+    .input-field:focus {
+      border-color: #00f0ff;
+      background: rgba(0, 240, 255, 0.08);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    .clue-row {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 8px;
+    }
+
+    .btn-submit {
+      width: 100%;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1.5px solid #00f0ff;
+      color: #ffffff;
+      padding: 11px;
+      border-radius: 10px;
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(0.9rem, 2.5vw, 1rem);
+      letter-spacing: 3px;
+      cursor: pointer;
+      margin-top: 6px;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .btn-submit:hover {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 20px #00f0ff;
+    }
+
+    /* 2. Active Gameplay Screen */
+    .gameplay-zone {
+      display: none;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-top {
+      position: relative;
+      z-index: 30;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: clamp(10px, 3.2vh, 25px);
+    }
+
+    .industry-life-title {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: clamp(3px, 1.2vw, 6px);
+      margin-bottom: 6px;
+      width: 100%;
+    }
+
+    .life-letter {
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: clamp(1.1rem, 3.8vw, 1.8rem);
+      color: #ffffff;
+      display: inline-block;
+      text-shadow: 0 0 10px #00f0ff, 0 0 20px rgba(0, 240, 255, 0.6);
+      transition: transform 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19), opacity 0.5s ease;
+    }
+
+    .letter-dropped {
+      transform: translateY(60px) rotate(28deg) scale(0.3) !important;
+      opacity: 0 !important;
+      color: #ff0055 !important;
+      text-shadow: 0 0 15px #ff0055 !important;
+    }
+
+    .clue-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+
+    .clue-header {
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      color: rgba(0, 240, 255, 0.85);
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .clue-btn-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-clue {
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #ffffff;
+      padding: 4px 10px;
+      font-size: clamp(0.62rem, 1.8vw, 0.72rem);
+      font-weight: 700;
+      letter-spacing: 1px;
+      border-radius: 8px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      transition: all 0.25s ease;
+    }
+
+    .btn-clue:hover:not(:disabled) {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      box-shadow: 0 0 10px #00f0ff;
+    }
+
+    .btn-clue:disabled {
+      border-color: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.3);
+      cursor: default;
+    }
+
+    .clue-display-box {
+      margin-top: 2px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 4px;
+      min-height: 18px;
+    }
+
+    .clue-item {
+      font-size: 0.68rem;
+      letter-spacing: 0.8px;
+      color: #00f0ff;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      animation: fadeInClue 0.3s ease-out forwards;
+    }
+
+    @keyframes fadeInClue {
+      0% { opacity: 0; transform: translateY(-4px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .game-board {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 6px 12px;
+      width: 100%;
+      max-width: 600px;
+      margin: auto 0;
+      padding: 4px 0;
+      overflow-y: auto;
+      max-height: 32vh;
+    }
+
+    .word-wrap {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: clamp(3px, 1vw, 6px);
+    }
+
+    .char-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: clamp(20px, 4.8vw, 34px);
+    }
+
+    .char-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.1rem, 3.8vw, 1.7rem);
+      color: #ffffff;
+      text-shadow: 0 0 10px #00f0ff;
+      min-height: 28px;
+      opacity: 0;
+      transform: scale(0.2);
+      transition: all 0.25s ease;
+    }
+
+    .char-revealed {
+      opacity: 1 !important;
+      transform: scale(1) !important;
+    }
+
+    .char-dash {
+      width: 100%;
+      height: 2px;
+      background: #00f0ff;
+      box-shadow: 0 0 6px #00f0ff;
+      border-radius: 2px;
+      margin-top: 2px;
+    }
+
+    .keyboard-container {
+      position: relative;
+      z-index: 25;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: clamp(3px, 0.8vh, 5px);
+      margin-bottom: 2px;
+    }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: clamp(3px, 1vw, 5px);
+      width: 100%;
+    }
+
+    .key-btn {
+      appearance: none;
+      background: rgba(0, 240, 255, 0.06);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #00f0ff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.75rem, 2.8vw, 0.95rem);
+      font-weight: 700;
+      flex: 1 1 0px;
+      max-width: clamp(22px, 7.5vw, 38px);
+      height: clamp(30px, 5.8vh, 40px);
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+      touch-action: manipulation;
+    }
+
+    .key-btn:hover:not(:disabled) {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+    }
+
+    .key-btn:disabled {
+      pointer-events: none;
+    }
+
+    .key-correct {
+      background: rgba(0, 255, 170, 0.3) !important;
+      border-color: #00ffaa !important;
+      color: #00ffaa !important;
+      box-shadow: 0 0 10px rgba(0, 255, 170, 0.8) !important;
+      opacity: 0.85;
+    }
+
+    .key-dropped {
+      animation: completeKeyDrop 0.65s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards !important;
+      pointer-events: none !important;
+    }
+
+    @keyframes completeKeyDrop {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 1;
+      }
+      22% {
+        transform: translateY(-6px) rotate(-6deg);
+        opacity: 1;
+        background: #ff0055;
+      }
+      100% {
+        transform: translateY(60px) rotate(25deg);
+        opacity: 0;
+        visibility: hidden;
+      }
+    }
+
+    /* Result Modal */
+    .game-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      backdrop-filter: blur(10px);
+      padding: 16px;
+    }
+
+    .game-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-title {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(1.8rem, 6vw, 2.8rem);
+      font-weight: 900;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .win-title {
+      color: #00ffaa;
+      text-shadow: 0 0 20px #00ffaa;
+    }
+
+    .lose-title {
+      color: #ff0055;
+      text-shadow: 0 0 20px #ff0055;
+    }
+
+    .modal-movie-reveal {
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      letter-spacing: 2px;
+      color: #ffffff;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 0 10px;
+      word-break: break-word;
+    }
+
+    .btn-new-round {
+      background: linear-gradient(135deg, #00f0ff, #0077ff);
+      border: none;
+      color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+      letter-spacing: 2px;
+      padding: 10px 24px;
+      border-radius: 25px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+      transition: all 0.25s ease;
+      text-transform: uppercase;
+    }
+
+    .btn-new-round:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 25px #00f0ff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Audio Controls -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="game-warning-banner" id="warningBanner">ENTER THE MOVIE DETAILS</div>
+
+    <!-- 1. Setup Screen -->
+    <div class="setup-container" id="setupScreen">
+      <h1 class="main-title">XOLLYWOOD</h1>
+      <div class="form-wrapper">
+        <div class="form-group">
+          <label class="form-label">Secret Movie Name</label>
+          <input type="text" class="input-field" id="p1Movie" placeholder="e.g. LUCIFER" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clue 1 (Type & Clue)</label>
+          <div class="clue-row">
+            <input type="text" class="input-field" id="p1c1Type" value="HERO" />
+            <input type="text" class="input-field" id="p1c1Val" placeholder="e.g. Mohanlal" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clue 2 (Type & Clue)</label>
+          <div class="clue-row">
+            <input type="text" class="input-field" id="p1c2Type" value="YEAR" />
+            <input type="text" class="input-field" id="p1c2Val" placeholder="e.g. 2019" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Clue 3 (Type & Clue)</label>
+          <div class="clue-row">
+            <input type="text" class="input-field" id="p1c3Type" value="TYPE" />
+            <input type="text" class="input-field" id="p1c3Val" placeholder="e.g. Action" />
+          </div>
+        </div>
+
+        <button type="button" class="btn-submit" onclick="startOneDeviceGame()">PASS TO PLAYER 2</button>
+      </div>
+    </div>
+
+    <!-- 2. Active Gameplay Screen -->
+    <div class="gameplay-zone" id="gameplayZone">
+      <div class="hud-top">
+        <div class="industry-life-title" id="lifeTitleContainer"></div>
+
+        <div class="clue-panel">
+          <span class="clue-header">CLUES</span>
+          <div class="clue-btn-row">
+            <button type="button" class="btn-clue" id="btnClue1" onclick="useClue('c1')">CLUE 1</button>
+            <button type="button" class="btn-clue" id="btnClue2" onclick="useClue('c2')">CLUE 2</button>
+            <button type="button" class="btn-clue" id="btnClue3" onclick="useClue('c3')">CLUE 3</button>
+          </div>
+          <div class="clue-display-box" id="clueDisplayBox"></div>
+        </div>
+      </div>
+
+      <div class="game-board" id="gameBoard"></div>
+      <div class="keyboard-container" id="keyboardContainer"></div>
+
+      <!-- Result Modal -->
+      <div class="game-modal" id="gameModal">
+        <h1 class="modal-title" id="modalTitle"></h1>
+        <p class="modal-movie-reveal" id="modalMovieReveal"></p>
+        <button type="button" class="btn-new-round" onclick="resetToNewGame()">PLAY ANOTHER MOVIE</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Canvas Background
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const dustParticles = [];
+    for (let i = 0; i < 70; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.5 + 0.5,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: (Math.random() - 0.5) * 0.35,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    const backgroundComets = [];
+    let lastCometSpawn = Date.now();
+
+    function spawnBackgroundComet() {
+      const now = Date.now();
+      if (now - lastCometSpawn > 2400 && Math.random() < 0.65) {
+        lastCometSpawn = now;
+        backgroundComets.push({
+          x: Math.random() * width * 1.2 + width * 0.05,
+          y: -40,
+          speedX: -2.8 - Math.random() * 3.5,
+          speedY: 4.8 + Math.random() * 4.8,
+          length: 45 + Math.random() * 45,
+          size: 1.5 + Math.random() * 1.2,
+          alpha: 1
+        });
+      }
+    }
+
+    let animTime = 0;
+    function render() {
+      animTime += 0.02;
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+        const twinkle = p.alpha * (0.5 + Math.sin(animTime * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      spawnBackgroundComet();
+      for (let i = backgroundComets.length - 1; i >= 0; i--) {
+        const c = backgroundComets[i];
+        c.x += c.speedX; c.y += c.speedY; c.alpha -= 0.012;
+        if (c.alpha <= 0 || c.y > height) {
+          backgroundComets.splice(i, 1);
+          continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = c.alpha;
+        const grad = ctx.createLinearGradient(c.x, c.y, c.x - c.speedX * 7, c.y - c.speedY * 7);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.35, '#00f0ff');
+        grad.addColorStop(1, 'transparent');
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(c.x - c.speedX * 7, c.y - c.speedY * 7);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.size;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.restore();
+      }
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // Audio Engine
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    // Engine Logic
+    const LIFE_WORD = "XOLLYWOOD";
+    let lifeLetters = LIFE_WORD.split('');
+    let currentLifeIndex = 0;
+    let secretMovie = "";
+    let clues = {};
+    let guessedLetters = new Set();
+    let isGameOver = false;
+
+    let activeClues = { c1: false, c2: false, c3: false };
+
+    const lifeTitleContainer = document.getElementById('lifeTitleContainer');
+    const gameBoard = document.getElementById('gameBoard');
+    const keyboardContainer = document.getElementById('keyboardContainer');
+    const clueDisplayBox = document.getElementById('clueDisplayBox');
+    const gameModal = document.getElementById('gameModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalMovieReveal = document.getElementById('modalMovieReveal');
+    const warningBanner = document.getElementById('warningBanner');
+
+    function showWarning(text) {
+      warningBanner.textContent = text;
+      warningBanner.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([60, 40]);
+      setTimeout(() => {
+        warningBanner.classList.remove('show');
+      }, 2500);
+    }
+
+    function renderLifeHUD() {
+      lifeTitleContainer.innerHTML = '';
+      lifeLetters.forEach((char, idx) => {
+        const span = document.createElement('span');
+        span.className = 'life-letter';
+        span.id = `one-life-${idx}`;
+        span.textContent = char;
+        lifeTitleContainer.appendChild(span);
+      });
+    }
+
+    function dropLifeLetter() {
+      if (currentLifeIndex < lifeLetters.length) {
+        const targetSpan = document.getElementById(`one-life-${currentLifeIndex}`);
+        if (targetSpan) {
+          targetSpan.classList.add('letter-dropped');
+        }
+        currentLifeIndex++;
+
+        if (currentLifeIndex >= lifeLetters.length) {
+          triggerGameOver(false);
+        }
+      }
+    }
+
+    const KEYBOARD_ROWS_BASE = [
+      ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+      ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+      ["Z", "X", "C", "V", "B", "N", "M"]
+    ];
+    const NUMBER_ROW = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+    function buildKeyboard(hasNumbers) {
+      keyboardContainer.innerHTML = '';
+      const rows = hasNumbers ? [NUMBER_ROW, ...KEYBOARD_ROWS_BASE] : KEYBOARD_ROWS_BASE;
+
+      rows.forEach(row => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        row.forEach(key => {
+          const btn = document.createElement('button');
+          btn.className = 'key-btn';
+          btn.id = `key-${key}`;
+          btn.textContent = key;
+          btn.onclick = () => handleKeyGuess(key);
+          rowDiv.appendChild(btn);
+        });
+        keyboardContainer.appendChild(rowDiv);
+      });
+    }
+
+    function startOneDeviceGame() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      const movieInput = document.getElementById('p1Movie').value.trim().toUpperCase();
+      const c1Val = document.getElementById('p1c1Val').value.trim();
+      const c2Val = document.getElementById('p1c2Val').value.trim();
+      const c3Val = document.getElementById('p1c3Val').value.trim();
+
+      if (!movieInput || !c1Val || !c2Val || !c3Val) {
+        showWarning("ENTER THE MOVIE DETAILS");
+        return;
+      }
+
+      secretMovie = movieInput;
+      clues = {
+        c1: { type: document.getElementById('p1c1Type').value.trim() || 'HERO', val: c1Val },
+        c2: { type: document.getElementById('p1c2Type').value.trim() || 'YEAR', val: c2Val },
+        c3: { type: document.getElementById('p1c3Type').value.trim() || 'TYPE', val: c3Val }
+      };
+
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('gameplayZone').style.display = 'flex';
+
+      guessedLetters.clear();
+      isGameOver = false;
+      currentLifeIndex = 0;
+      activeClues = { c1: false, c2: false, c3: false };
+      clueDisplayBox.innerHTML = '';
+
+      renderLifeHUD();
+
+      document.getElementById('btnClue1').textContent = clues.c1.type;
+      document.getElementById('btnClue2').textContent = clues.c2.type;
+      document.getElementById('btnClue3').textContent = clues.c3.type;
+
+      ['btnClue1', 'btnClue2', 'btnClue3'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = false;
+      });
+
+      const containsDigits = /\d/.test(secretMovie);
+      buildKeyboard(containsDigits);
+
+      gameBoard.innerHTML = '';
+      const words = secretMovie.trim().split(/\s+/);
+      let globalIndex = 0;
+
+      words.forEach((word) => {
+        const wordDiv = document.createElement('div');
+        wordDiv.className = 'word-wrap';
+
+        for (let i = 0; i < word.length; i++) {
+          const char = word[i].toUpperCase();
+          const slot = document.createElement('div');
+          slot.className = 'char-slot';
+
+          if (/^[A-Z0-9]$/.test(char)) {
+            slot.innerHTML = `<span class="char-val" id="slot-${globalIndex}">${char}</span><div class="char-dash"></div>`;
+          } else {
+            slot.classList.add('symbol-slot');
+            slot.innerHTML = `<span class="char-val char-revealed" id="slot-${globalIndex}">${char}</span><div class="char-dash"></div>`;
+          }
+
+          wordDiv.appendChild(slot);
+          globalIndex++;
+        }
+        gameBoard.appendChild(wordDiv);
+      });
+
+      if (navigator.vibrate) navigator.vibrate([40, 80]);
+    }
+
+    function handleKeyGuess(charInput) {
+      if (isGameOver || guessedLetters.has(charInput)) return;
+      guessedLetters.add(charInput);
+
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+
+      const keyBtn = document.getElementById(`key-${charInput}`);
+      const rawTitle = secretMovie.replace(/\s+/g, '');
+
+      if (rawTitle.includes(charInput)) {
+        if (navigator.vibrate) navigator.vibrate(30);
+        if (keyBtn) {
+          keyBtn.disabled = true;
+          keyBtn.classList.add('key-correct');
+        }
+        for (let i = 0; i < rawTitle.length; i++) {
+          if (rawTitle[i] === charInput) {
+            const charEl = document.getElementById(`slot-${i}`);
+            if (charEl) charEl.classList.add('char-revealed');
+          }
+        }
+        checkWinCondition();
+      } else {
+        if (navigator.vibrate) navigator.vibrate([60, 40]);
+        if (keyBtn) {
+          keyBtn.classList.add('key-dropped');
+          keyBtn.disabled = true;
+        }
+        dropLifeLetter();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toUpperCase();
+      if (/^[A-Z0-9]$/.test(key) && document.getElementById('gameplayZone').style.display === 'flex') {
+        handleKeyGuess(key);
+      }
+    });
+
+    function useClue(clueKey) {
+      if (isGameOver || activeClues[clueKey]) return;
+      if (navigator.vibrate) navigator.vibrate(40);
+
+      activeClues[clueKey] = true;
+      const clue = clues[clueKey];
+      if (!clue) return;
+
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+
+      const clueItem = document.createElement('div');
+      clueItem.className = 'clue-item';
+      clueItem.textContent = `${clue.type}: ${clue.val}`;
+      clueDisplayBox.appendChild(clueItem);
+
+      const btnId = clueKey === 'c1' ? 'btnClue1' : clueKey === 'c2' ? 'btnClue2' : 'btnClue3';
+      document.getElementById(btnId).disabled = true;
+
+      dropLifeLetter();
+    }
+
+    function checkWinCondition() {
+      const upperTitle = secretMovie.replace(/\s/g, '');
+      let hasWon = true;
+      for (let char of upperTitle) {
+        if (/^[A-Z0-9]$/.test(char) && !guessedLetters.has(char)) {
+          hasWon = false;
+          break;
+        }
+      }
+      if (hasWon) {
+        triggerGameOver(true);
+      }
+    }
+
+    function triggerGameOver(isWin) {
+      isGameOver = true;
+      gameModal.classList.add('active');
+
+      if (isWin) {
+        modalTitle.className = 'modal-title win-title';
+        modalTitle.textContent = 'YOU WIN!';
+        modalMovieReveal.textContent = `Movie: ${secretMovie}`;
+        if (navigator.vibrate) navigator.vibrate([50, 100, 50, 100]);
+      } else {
+        modalTitle.className = 'modal-title lose-title';
+        modalTitle.textContent = 'YOU LOSE';
+        modalMovieReveal.textContent = `Correct Movie: ${secretMovie}`;
+        if (navigator.vibrate) navigator.vibrate(200);
+      }
+    }
+
+    function resetToNewGame() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      gameModal.classList.remove('active');
+      document.getElementById('gameplayZone').style.display = 'none';
+      document.getElementById('setupScreen').style.display = 'flex';
+
+      document.getElementById('p1Movie').value = '';
+      document.getElementById('p1c1Val').value = '';
+      document.getElementById('p1c2Val').value = '';
+      document.getElementById('p1c3Val').value = '';
+    }
+  </script>
+</body>
+</html>

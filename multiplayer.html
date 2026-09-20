@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>XOLLYWOOD - Multiplayer Setup (X v X)</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      color: #ffffff;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    #spaceCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Left Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.6);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 15px #00f0ff;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+    }
+
+    /* Setup Wrapper */
+    .setup-wrapper {
+      position: relative;
+      z-index: 20;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .main-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 0 20px rgba(0, 240, 255, 0.8);
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .form-label {
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      color: rgba(0, 240, 255, 0.9);
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .select-field {
+      width: 100%;
+      background: rgba(0, 20, 35, 0.8) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23ffffff' d='M6 8L0 0h12z'/%3E%3C/svg%3E") no-repeat calc(100% - 14px) center;
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      padding: 12px 34px 12px 14px;
+      border-radius: 12px;
+      color: #ffffff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      outline: none;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+      transition: all 0.25s ease;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+    }
+
+    .select-field option {
+      background: #000f1e;
+      color: #ffffff;
+    }
+
+    .select-field:focus {
+      border-color: #00f0ff;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4), inset 0 0 10px rgba(0, 240, 255, 0.1);
+    }
+
+    /* Year Range Selector Row */
+    .year-range-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .year-select-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .year-select {
+      text-align: center;
+      padding-left: 10px;
+    }
+
+    .year-to-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 0.95rem;
+      letter-spacing: 3px;
+      color: rgba(0, 240, 255, 0.9);
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+    }
+
+    .btn-create-room {
+      appearance: none;
+      background: transparent;
+      border: 1.5px solid #00f0ff;
+      color: #ffffff;
+      font-family: 'Cinzel Decorative', serif;
+      font-weight: 900;
+      font-size: 1rem;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 14px;
+      border-radius: 30px;
+      margin-top: 10px;
+      text-shadow: 0 0 12px rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      transition: all 0.3s ease;
+      text-align: center;
+      width: 100%;
+    }
+
+    .btn-create-room:hover {
+      background: #00f0ff;
+      color: #000000;
+      box-shadow: 0 0 30px #00f0ff;
+      transform: translateY(-2px);
+    }
+
+    .btn-create-room:active {
+      transform: scale(0.97);
+    }
+
+    /* Warning Banner */
+    .game-warning-banner {
+      position: fixed;
+      top: -60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 20, 40, 0.95);
+      border: 1.5px solid #00f0ff;
+      color: #00f0ff;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+      z-index: 150;
+      transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      text-align: center;
+      width: 90%;
+      max-width: 420px;
+    }
+
+    .game-warning-banner.show {
+      top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Top Left Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div class="game-warning-banner" id="warningBanner">PLEASE SELECT ALL OPTIONS</div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <div class="setup-wrapper">
+      <h1 class="main-title">X v X BATTLE</h1>
+
+      <!-- 1. Select Industry -->
+      <div class="form-group">
+        <label class="form-label">Select Industry</label>
+        <select class="select-field" id="selectIndustry" onchange="playClickSound()">
+          <option value="MOLLYWOOD">Mollywood</option>
+          <option value="KOLLYWOOD">Kollywood</option>
+          <option value="TOLLYWOOD">Tollywood</option>
+          <option value="BOLLYWOOD">Bollywood</option>
+          <option value="HOLLYWOOD">Hollywood</option>
+        </select>
+      </div>
+
+      <!-- 2. Select Era (Year Range) -->
+      <div class="form-group">
+        <label class="form-label">Select Era (Year Range)</label>
+        <div class="year-range-row">
+          <div class="year-select-wrap">
+            <select class="select-field year-select" id="startYearSelect" onchange="playClickSound()">
+              <option value="1980" selected>1980</option>
+              <option value="1990">1990</option>
+              <option value="2000">2000</option>
+              <option value="2005">2005</option>
+              <option value="2010">2010</option>
+              <option value="2015">2015</option>
+              <option value="2020">2020</option>
+              <option value="2022">2022</option>
+              <option value="2024">2024</option>
+            </select>
+          </div>
+          <span class="year-to-text">TO</span>
+          <div class="year-select-wrap">
+            <select class="select-field year-select" id="endYearSelect" onchange="playClickSound()">
+              <option value="2026" selected>2026</option>
+              <option value="2025">2025</option>
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2022">2022</option>
+              <option value="2021">2021</option>
+              <option value="2020">2020</option>
+              <option value="2019">2019</option>
+              <option value="2018">2018</option>
+              <option value="2017">2017</option>
+              <option value="2016">2016</option>
+              <option value="2015">2015</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Enter Number of Players (Even numbers only) -->
+      <div class="form-group">
+        <label class="form-label">Number of Players (Even)</label>
+        <select class="select-field" id="selectPlayers" onchange="playClickSound()">
+          <option value="2">2 Players (1 v 1)</option>
+          <option value="4" selected>4 Players (2 v 2)</option>
+          <option value="6">6 Players (3 v 3)</option>
+          <option value="8">8 Players (4 v 4)</option>
+          <option value="10">10 Players (5 v 5)</option>
+        </select>
+      </div>
+
+      <!-- 4. Enter Number of Rounds (1 to 6) -->
+      <div class="form-group">
+        <label class="form-label">Number of Rounds</label>
+        <select class="select-field" id="selectRounds" onchange="playClickSound()">
+          <option value="1">1 Round</option>
+          <option value="2">2 Rounds</option>
+          <option value="3" selected>3 Rounds</option>
+          <option value="4">4 Rounds</option>
+          <option value="5">5 Rounds</option>
+          <option value="6">6 Rounds</option>
+        </select>
+      </div>
+
+      <button type="button" class="btn-create-room" onclick="createMultiplayerRoom()">CREATE ROOM</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const dustParticles = [];
+    for (let i = 0; i < 80; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.6 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.25,
+        speedY: (Math.random() - 0.5) * 0.4 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    let animTime = 0;
+    function render() {
+      animTime += 0.02;
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+        const twinkle = p.alpha * (0.5 + Math.sin(animTime * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+      requestAnimationFrame(render);
+    }
+    render();
+
+    // --- Audio Control Engine ---
+    const sndBgm = document.getElementById('sndBgm');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    function playClickSound() {
+      if (!sfxMuted) {
+        sndClickDrop.currentTime = 0.26;
+        sndClickDrop.play().catch(() => {});
+      }
+      if (navigator.vibrate) navigator.vibrate(20);
+    }
+
+    function showWarning(text) {
+      const banner = document.getElementById('warningBanner');
+      banner.textContent = text;
+      banner.classList.add('show');
+      if (navigator.vibrate) navigator.vibrate([60, 40]);
+      setTimeout(() => { banner.classList.remove('show'); }, 2500);
+    }
+
+    function createMultiplayerRoom() {
+      playClickSound();
+
+      const industry = document.getElementById('selectIndustry').value;
+      const players = document.getElementById('selectPlayers').value;
+      const rounds = document.getElementById('selectRounds').value;
+      const startYear = document.getElementById('startYearSelect').value;
+      const endYear = document.getElementById('endYearSelect').value;
+
+      if (parseInt(startYear) > parseInt(endYear)) {
+        showWarning("START YEAR MUST BE LESS THAN OR EQUAL TO END YEAR");
+        return;
+      }
+
+      const username = localStorage.getItem('xollywood_username') || 'PLAYER';
+
+      localStorage.setItem('xollywood_mp_industry', industry);
+      localStorage.setItem('xollywood_mp_players', players);
+      localStorage.setItem('xollywood_mp_rounds', rounds);
+      localStorage.setItem('xollywood_mp_start_year', startYear);
+      localStorage.setItem('xollywood_mp_end_year', endYear);
+      localStorage.setItem('xollywood_mp_host', username);
+
+      setTimeout(() => {
+        window.location.href = 'multiplayer2.html';
+      }, 200);
+    }
+  </script>
+</body>
+</html>

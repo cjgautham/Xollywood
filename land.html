@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>XOLLYWOOD - Cinematic Universe</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #000000;
+      font-family: 'Space Grotesk', sans-serif;
+      touch-action: manipulation;
+    }
+
+    #stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100svh;
+      overflow: hidden;
+      background: #000000 url('BGxolly.jpg') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #spaceCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      display: block;
+      pointer-events: none;
+    }
+
+    .vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.85) 85%, #000000 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Top Right Audio Control Toggles */
+    .audio-controls {
+      position: absolute;
+      top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right));
+      z-index: 100;
+      display: flex;
+      gap: 8px;
+    }
+
+    .audio-btn {
+      background: rgba(0, 20, 35, 0.7);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      color: #00f0ff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+      transition: all 0.25s ease;
+      font-size: 0.9rem;
+    }
+
+    .audio-btn.muted {
+      border-color: #ff0055;
+      color: #ff0055;
+      box-shadow: 0 0 8px rgba(255, 0, 85, 0.3);
+    }
+
+    /* Landing Bottom Area Container */
+    .initial-hud-container {
+      position: absolute;
+      bottom: max(30px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      z-index: 20;
+      width: 100%;
+      max-width: 360px;
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    .initial-hud-container.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 20px);
+    }
+
+    /* Action Buttons (HOW TO PLAY & SKIP) */
+    .action-hud {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .hud-btn {
+      background: rgba(0, 20, 35, 0.85);
+      border: 1.5px solid rgba(0, 240, 255, 0.5);
+      color: #00f0ff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(0.72rem, 2.5vw, 0.82rem);
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      border-radius: 25px;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+      transition: all 0.25s ease;
+    }
+
+    .hud-btn:hover, .hud-btn:active {
+      background: rgba(0, 240, 255, 0.25);
+      border-color: #00f0ff;
+      color: #ffffff;
+      box-shadow: 0 0 18px #00f0ff;
+    }
+
+    /* Swipe Hint Arrow */
+    .swipe-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: rgba(0, 240, 255, 0.9);
+      font-size: 0.72rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      font-weight: 800;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+      pointer-events: none;
+    }
+
+    .arrow-up {
+      font-size: 1.2rem;
+      animation: bounceUp 1.4s infinite ease-in-out;
+    }
+
+    @keyframes bounceUp {
+      0%, 100% { transform: translateY(0); opacity: 0.4; }
+      50% { transform: translateY(-8px); opacity: 1; }
+    }
+
+    /* Instruction Modal */
+    .instruction-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 200;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    .instruction-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .instruction-box {
+      width: 100%;
+      max-width: 420px;
+      max-height: 82vh;
+      background: rgba(0, 15, 30, 0.92);
+      border: 1.5px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.25);
+      border-radius: 20px;
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .instruction-header {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(1.2rem, 4vw, 1.4rem);
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: #00f0ff;
+      margin-bottom: 16px;
+      text-align: center;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+    }
+
+    .instruction-content {
+      overflow-y: auto;
+      font-size: clamp(0.8rem, 2.8vw, 0.88rem);
+      line-height: 1.6;
+      color: #ffffff;
+      letter-spacing: 0.8px;
+      padding-right: 6px;
+      white-space: pre-line;
+      text-align: center;
+    }
+
+    .instruction-content::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .instruction-content::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.4);
+      border-radius: 8px;
+    }
+
+    .btn-close-modal {
+      margin-top: 18px;
+      align-self: center;
+      background: rgba(0, 20, 35, 0.85);
+      border: 1.5px solid #ff0055;
+      color: #ff0055;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 0.78rem;
+      letter-spacing: 2.5px;
+      padding: 8px 26px;
+      border-radius: 20px;
+      cursor: pointer;
+      box-shadow: 0 0 12px rgba(255, 0, 85, 0.3);
+      transition: all 0.25s ease;
+      text-transform: uppercase;
+    }
+
+    /* Centered Universe Selection Layout (Perfect for Mobile) */
+    .universe-section {
+      position: absolute;
+      z-index: 40;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      opacity: 0;
+      transform: scale(0.92) translateY(30px);
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .show-universe .universe-section {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+
+    .universe-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.1rem, 4.5vw, 1.5rem);
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
+      background: linear-gradient(180deg, #ffffff 0%, #c2d5e2 50%, #8ba6bc 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.75));
+      margin-bottom: clamp(14px, 2.5vh, 22px);
+      line-height: 1.2;
+    }
+
+    .industry-list {
+      display: flex;
+      flex-direction: column;
+      gap: clamp(8px, 1.5vh, 12px);
+      width: 100%;
+      align-items: center;
+    }
+
+    .industry-btn {
+      appearance: none;
+      background: rgba(0, 20, 35, 0.75);
+      border: 1.2px solid rgba(0, 240, 255, 0.35);
+      outline: none;
+      width: 100%;
+      padding: clamp(8px, 1.4vh, 12px) 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: clamp(12px, 3.5vw, 18px);
+      position: relative;
+      border-radius: 35px;
+      z-index: 50;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .actor-avatar {
+      width: clamp(36px, 9vw, 44px);
+      height: clamp(36px, 9vw, 44px);
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid #00f0ff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+      background-color: #0d1b2a;
+      pointer-events: none;
+    }
+
+    .industry-text {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(0.9rem, 4vw, 1.2rem);
+      font-weight: 900;
+      letter-spacing: 3px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.85);
+      transition: color 0.2s ease, text-shadow 0.2s ease;
+      pointer-events: none;
+    }
+
+    .industry-btn:hover, .industry-btn:active {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      transform: scale(1.03);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+
+    .industry-btn:hover .actor-avatar, .industry-btn:active .actor-avatar {
+      box-shadow: 0 0 14px #00f0ff;
+      border-color: #ffffff;
+    }
+
+    .industry-btn:hover .industry-text, .industry-btn:active .industry-text {
+      color: #00f0ff;
+      text-shadow: 0 0 14px #00f0ff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Audio Elements -->
+  <audio id="sndBgm" src="bgm.mp3" loop preload="auto"></audio>
+  <audio id="sndSwipeReveal" src="swipe_reveal.mp3" preload="auto"></audio>
+  <audio id="sndClickDrop" src="click_drop.mp3" preload="auto"></audio>
+
+  <!-- Top Right Audio Control Toggles -->
+  <div class="audio-controls">
+    <button class="audio-btn" id="bgmToggleBtn" onclick="toggleBGM()" title="Toggle Background Music">🎵</button>
+    <button class="audio-btn" id="sfxToggleBtn" onclick="toggleSFX()" title="Toggle Sound Effects">🔊</button>
+  </div>
+
+  <div id="stage">
+    <canvas id="spaceCanvas"></canvas>
+    <div class="vignette"></div>
+
+    <!-- Initial Landing HUD Area (Swipe Hint + How To Play / Skip) -->
+    <div class="initial-hud-container" id="initialHud">
+      <div class="swipe-hint">
+        <div class="arrow-up">↑</div>
+        <span>SWIPE UP</span>
+      </div>
+
+      <div class="action-hud">
+        <button class="hud-btn" onclick="openInstruction()">HOW TO PLAY</button>
+        <button class="hud-btn" onclick="triggerUniverseReveal()">SKIP</button>
+      </div>
+    </div>
+
+    <!-- How To Play Modal -->
+    <div class="instruction-modal" id="instructionModal" onclick="closeInstruction(event)">
+      <div class="instruction-box" onclick="event.stopPropagation()">
+        <div class="instruction-header">HOW TO PLAY</div>
+        <div class="instruction-content">Think you know movies? Let's find out.
+
+🎬 CHOOSE YOUR UNIVERSE
+Pick your favourite — Mollywood, Kollywood, Tollywood, Bollywood or Hollywood.
+
+🔤 GUESS THE MOVIE
+Find the hidden letters and complete the movie title.
+
+❌ WRONG GUESS?
+You’ll lose a letter from the industry name.
+
+💡 NEED A HINT?
+Use HERO, YEAR or TYPE to get a clue.
+
+🔥 KEEP YOUR STREAK ALIVE
+Make correct guesses and build your streak.
+
+READY?
+Choose your cinematic universe and start the hunt.</div>
+        <button class="btn-close-modal" onclick="closeInstruction()">CLOSE</button>
+      </div>
+    </div>
+
+    <!-- Centered Cinematic Universe Options -->
+    <div class="universe-section" id="universeSection">
+      <h2 class="universe-title">ENTER A CINEMATIC UNIVERSE</h2>
+      <div class="industry-list">
+        
+        <!-- 1. Mollywood -->
+        <button type="button" class="industry-btn" onclick="handleIndustrySelect('MOLLYWOOD', 'malayalam')">
+          <img class="actor-avatar" src="mohanlal.jpg" alt="Mohanlal" onerror="this.src='https://via.placeholder.com/150/00f0ff/000000?text=M'" />
+          <span class="industry-text">MOLLYWOOD</span>
+        </button>
+
+        <!-- 2. Kollywood -->
+        <button type="button" class="industry-btn" onclick="handleIndustrySelect('KOLLYWOOD', 'tamil')">
+          <img class="actor-avatar" src="vijay.jpg" alt="Vijay" onerror="this.src='https://via.placeholder.com/150/00f0ff/000000?text=K'" />
+          <span class="industry-text">KOLLYWOOD</span>
+        </button>
+
+        <!-- 3. Tollywood -->
+        <button type="button" class="industry-btn" onclick="handleIndustrySelect('TOLLYWOOD', 'telugu')">
+          <img class="actor-avatar" src="allu.jpg" alt="Allu Arjun" onerror="this.src='https://via.placeholder.com/150/00f0ff/000000?text=T'" />
+          <span class="industry-text">TOLLYWOOD</span>
+        </button>
+
+        <!-- 4. Bollywood -->
+        <button type="button" class="industry-btn" onclick="handleIndustrySelect('BOLLYWOOD', 'hindi')">
+          <img class="actor-avatar" src="srk.jpg" alt="Shah Rukh Khan" onerror="this.src='https://via.placeholder.com/150/00f0ff/000000?text=B'" />
+          <span class="industry-text">BOLLYWOOD</span>
+        </button>
+
+        <!-- 5. Hollywood -->
+        <button type="button" class="industry-btn" onclick="handleIndustrySelect('HOLLYWOOD', 'english')">
+          <img class="actor-avatar" src="hollywood.jpg" alt="Hollywood" onerror="this.src='https://via.placeholder.com/150/00f0ff/000000?text=H'" />
+          <span class="industry-text">HOLLYWOOD</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('spaceCanvas');
+    const ctx = canvas.getContext('2d');
+    const stage = document.getElementById('stage');
+    const initialHud = document.getElementById('initialHud');
+    const instructionModal = document.getElementById('instructionModal');
+
+    const sndBgm = document.getElementById('sndBgm');
+    const sndSwipeReveal = document.getElementById('sndSwipeReveal');
+    const sndClickDrop = document.getElementById('sndClickDrop');
+
+    let width, height;
+    const isMobile = window.innerWidth <= 768;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Sound Management Engine & Mute State Sync
+    let bgmMuted = localStorage.getItem('xollywood_bgm_muted') === 'true';
+    let sfxMuted = localStorage.getItem('xollywood_sfx_muted') === 'true';
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const bgmBtn = document.getElementById('bgmToggleBtn');
+      const sfxBtn = document.getElementById('sfxToggleBtn');
+
+      if (bgmMuted) {
+        bgmBtn.classList.add('muted');
+        bgmBtn.textContent = '🔇';
+      }
+      if (sfxMuted) {
+        sfxBtn.classList.add('muted');
+        sfxBtn.textContent = '🔇';
+      }
+
+      if (!bgmMuted) {
+        sndBgm.volume = 0.25;
+        sndBgm.play().catch(() => {});
+      }
+    });
+
+    function toggleBGM() {
+      bgmMuted = !bgmMuted;
+      localStorage.setItem('xollywood_bgm_muted', bgmMuted);
+      const btn = document.getElementById('bgmToggleBtn');
+      if (bgmMuted) {
+        sndBgm.pause();
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        sndBgm.play().catch(() => {});
+        btn.classList.remove('muted');
+        btn.textContent = '🎵';
+      }
+    }
+
+    function toggleSFX() {
+      sfxMuted = !sfxMuted;
+      localStorage.setItem('xollywood_sfx_muted', sfxMuted);
+      const btn = document.getElementById('sfxToggleBtn');
+      if (sfxMuted) {
+        btn.classList.add('muted');
+        btn.textContent = '🔇';
+      } else {
+        btn.classList.remove('muted');
+        btn.textContent = '🔊';
+      }
+    }
+
+    function openInstruction() {
+      playClickSound();
+      instructionModal.classList.add('active');
+    }
+
+    function closeInstruction(e) {
+      playClickSound();
+      instructionModal.classList.remove('active');
+    }
+
+    function playClickSound() {
+      if (!sfxMuted && sndClickDrop) {
+        try {
+          sndClickDrop.currentTime = 0.26;
+          sndClickDrop.play().catch(() => {});
+        } catch(e) {}
+      }
+    }
+
+    // Cosmic Particles
+    const dustParticles = [];
+    const NUM_DUST = isMobile ? 40 : 75;
+    for (let i = 0; i < NUM_DUST; i++) {
+      dustParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        size: Math.random() * 1.5 + 0.4,
+        speedX: (Math.random() - 0.5) * 0.2,
+        speedY: (Math.random() - 0.5) * 0.3 - 0.1,
+        alpha: Math.random() * 0.7 + 0.3
+      });
+    }
+
+    // Comets Background
+    const backgroundComets = [];
+    let lastCometSpawn = Date.now();
+
+    function spawnBackgroundComet() {
+      const now = Date.now();
+      if (now - lastCometSpawn > 2200 && Math.random() < 0.65) {
+        lastCometSpawn = now;
+        backgroundComets.push({
+          x: Math.random() * width * 1.2 + width * 0.05,
+          y: -40,
+          speedX: -2.5 - Math.random() * 3,
+          speedY: 4.5 + Math.random() * 4,
+          length: 35 + Math.random() * 35,
+          size: 1.2 + Math.random() * 1.0,
+          alpha: 1
+        });
+      }
+    }
+
+    // Swipe Up & Navigation Control
+    let isSwipedUp = false;
+    let startTouchY = 0;
+
+    window.addEventListener('touchstart', (e) => {
+      startTouchY = e.touches[0].clientY;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (isSwipedUp || instructionModal.classList.contains('active')) return;
+      const currentY = e.touches[0].clientY;
+      if (startTouchY - currentY > 25) {
+        triggerUniverseReveal();
+      }
+    }, { passive: true });
+
+    window.addEventListener('mousedown', (e) => {
+      startTouchY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isSwipedUp || instructionModal.classList.contains('active')) return;
+      if (e.buttons > 0 && startTouchY - e.clientY > 25) {
+        triggerUniverseReveal();
+      }
+    });
+
+    window.addEventListener('wheel', (e) => {
+      if (isSwipedUp || instructionModal.classList.contains('active')) return;
+      if (e.deltaY > 10) {
+        triggerUniverseReveal();
+      }
+    }, { passive: true });
+
+    function triggerUniverseReveal() {
+      if (isSwipedUp) return;
+      isSwipedUp = true;
+
+      if (!sfxMuted && sndSwipeReveal) {
+        sndSwipeReveal.currentTime = 0.15;
+        sndSwipeReveal.play().catch(() => {});
+        if (navigator.vibrate) navigator.vibrate(30);
+      }
+
+      initialHud.classList.add('hidden');
+      stage.classList.add('show-universe');
+    }
+
+    function handleIndustrySelect(industryKey, langKey) {
+      // 1. Play Click Drop Sound immediately at 0.26s
+      playClickSound();
+      if (navigator.vibrate) navigator.vibrate(30);
+
+      // 2. Save Selection
+      localStorage.setItem('xollywood_industry', industryKey);
+      localStorage.setItem('xollywood_language', langKey);
+
+      // 3. Instant smooth redirect without lag
+      window.location.href = `select.html?industry=${industryKey}&lang=${langKey}`;
+    }
+
+    let time = 0;
+    function render() {
+      time += 0.02;
+      ctx.clearRect(0, 0, width, height);
+
+      dustParticles.forEach((p) => {
+        p.x += p.speedX; p.y += p.speedY;
+        if (p.x < 0) p.x = width; if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height; if (p.y > height) p.y = 0;
+
+        const twinkle = p.alpha * (0.5 + Math.sin(time * 2 + p.x) * 0.5);
+        ctx.save();
+        ctx.globalAlpha = twinkle;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      spawnBackgroundComet();
+      for (let i = backgroundComets.length - 1; i >= 0; i--) {
+        const c = backgroundComets[i];
+        c.x += c.speedX; c.y += c.speedY; c.alpha -= 0.014;
+
+        if (c.alpha <= 0 || c.y > height) {
+          backgroundComets.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = c.alpha;
+        const grad = ctx.createLinearGradient(c.x, c.y, c.x - c.speedX * 6, c.y - c.speedY * 6);
+        grad.addColorStop(0, '#ffffff');
+        grad.addColorStop(0.4, '#00f0ff');
+        grad.addColorStop(1, 'transparent');
+        
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y);
+        ctx.lineTo(c.x - c.speedX * 6, c.y - c.speedY * 6);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = c.size;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>
